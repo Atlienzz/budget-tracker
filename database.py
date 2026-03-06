@@ -43,6 +43,7 @@ def init_db():
                 paid_date TEXT    NOT NULL,
                 month     INTEGER NOT NULL,
                 year      INTEGER NOT NULL,
+                notes     TEXT    DEFAULT '',     
                 FOREIGN KEY (bill_id) REFERENCES bills(id)
             )
         """)
@@ -93,13 +94,14 @@ def delete_bill(bill_id):
 
 # ── Payments ───────────────────────────────────────────────────────────────────
 
-def mark_paid(bill_id, amount, month, year):
+def mark_paid(bill_id, amount, month, year, notes=""):
     with get_connection() as conn:
         conn.execute(
-            "INSERT INTO payments (bill_id, amount, paid_date, month, year) VALUES (?, ?, ?, ?, ?)",
-            (bill_id, amount, datetime.now().strftime("%Y-%m-%d"), month, year),
+            "INSERT INTO payments (bill_id, amount, paid_date, month, year, notes) VALUES (?, ?, ?, ?, ?, ?)",
+            (bill_id, amount, datetime.now().strftime("%Y-%m-%d"), month, year, notes),
         )
         conn.commit()
+
 
 
 def unmark_paid(bill_id, month, year):

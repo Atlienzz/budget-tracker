@@ -34,27 +34,33 @@ if page == "Dashboard":
     paid_ids   = payments['bill_id'].tolist()
     unpaid     = bills[~bills['id'].isin(paid_ids)]
 
-    today = datetime.now()
+    unpaid = unpaid.copy()
+    today  = datetime.now()
+
     if int(month) == today.month and int(year) == today.year:
-        unpaid['days_until_due'] = unpaid['due_day'].apply(
-            lambda d: d - today.day if d >= today.day else "Overdue")
+        unpaid.loc[:, 'days_until_due'] = unpaid['due_day'].apply(
+            lambda d: f"{d - today.day} days" if d >= today.day else "Overdue")
         cols = ['name', 'category', 'amount', 'due_day', 'days_until_due']
     else:
         from datetime import date
-        selected_month_date = date(int(year), int(month), 1)
-        current_month_date  = date(today.year, today.month, 1)
-        if selected_month_date < current_month_date:
-            unpaid['days_until_due'] = "Overdue"
+        selected_date = date(int(year), int(month), 1)
+        current_date  = date(today.year, today.month, 1)
+        if selected_date < current_date:
+            unpaid.loc[:, 'days_until_due'] = "Overdue"
             cols = ['name', 'category', 'amount', 'due_day', 'days_until_due']
         else:
             cols = ['name', 'category', 'amount', 'due_day']
-
 
     if not unpaid.empty:
         st.subheader("Still Unpaid")
         st.dataframe(unpaid[cols].sort_values('due_day'), width='stretch')
     else:
         st.success("All bills paid this month!")
+
+    if not payments.empty:
+        st.subheader("Spending by Category")
+        by_category = payments.groupby('category')['amount'].sum()
+        st.bar_chart(by_category)
 
 
 elif page == "View Bills":
@@ -90,15 +96,17 @@ elif page == "Mark Paid":
         bills = db.get_bills()
         bill_names = bills['name'].tolist()
         selected = st.selectbox("Select a bill", bill_names)
-        month = st.number_input("Month", min_value=1, max_value=12, value=datetime.now().month)
-        year  = st.number_input("Year", min_value=2020, max_value=2030, value=datetime.now().year)
+        notes    = st.text_input("Payment note (optional)", placeholder="e.g. paid via autopay, paid late, etc.")
+        month    = st.number_input("Month", min_value=1, max_value=12, value=datetime.now().month)
+        year     = st.number_input("Year", min_value=2020, max_value=2030, value=datetime.now().year)
+
 
     if st.button("Mark as Paid"):
         bill = bills[bills['name'] == selected].iloc[0]
         if db.is_paid(int(bill['id']), int(month), int(year)):
             st.warning(f"{selected} is already marked as paid for that month.")
         else:
-            db.mark_paid(int(bill['id']), bill['amount'], int(month), int(year))
+            db.mark_paid(int(bill['id']), bill['amount'], int(month), int(year), notes)
             st.success(f"{selected} marked as paid!")
 
 
