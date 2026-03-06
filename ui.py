@@ -34,11 +34,28 @@ if page == "Dashboard":
     paid_ids   = payments['bill_id'].tolist()
     unpaid     = bills[~bills['id'].isin(paid_ids)]
 
+    today = datetime.now()
+    if int(month) == today.month and int(year) == today.year:
+        unpaid['days_until_due'] = unpaid['due_day'].apply(
+            lambda d: d - today.day if d >= today.day else "Overdue")
+        cols = ['name', 'category', 'amount', 'due_day', 'days_until_due']
+    else:
+        from datetime import date
+        selected_month_date = date(int(year), int(month), 1)
+        current_month_date  = date(today.year, today.month, 1)
+        if selected_month_date < current_month_date:
+            unpaid['days_until_due'] = "Overdue"
+            cols = ['name', 'category', 'amount', 'due_day', 'days_until_due']
+        else:
+            cols = ['name', 'category', 'amount', 'due_day']
+
+
     if not unpaid.empty:
         st.subheader("Still Unpaid")
-        st.dataframe(unpaid[['name', 'category', 'amount', 'due_day']], width='stretch')
+        st.dataframe(unpaid[cols].sort_values('due_day'), width='stretch')
     else:
         st.success("All bills paid this month!")
+
 
 elif page == "View Bills":
     st.subheader("Your Bills")
@@ -78,8 +95,12 @@ elif page == "Mark Paid":
 
     if st.button("Mark as Paid"):
         bill = bills[bills['name'] == selected].iloc[0]
-        db.mark_paid(int(bill['id']), bill['amount'], int(month), int(year))
-        st.success(f"{selected} marked as paid!")
+        if db.is_paid(int(bill['id']), int(month), int(year)):
+            st.warning(f"{selected} is already marked as paid for that month.")
+        else:
+            db.mark_paid(int(bill['id']), bill['amount'], int(month), int(year))
+            st.success(f"{selected} marked as paid!")
+
 
 
 elif page == "View Payments":
