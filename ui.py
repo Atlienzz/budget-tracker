@@ -5,9 +5,9 @@ from datetime import datetime
 
 db.init_db()
 
-st.title("💰 Budget Tracker")
+st.title("💰 Ben & Heather's Bills")
 
-page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Mark Paid", "Unmark Paid", "View Payments"])
+page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments"])
 
 if page == "Dashboard":
     MONTH_NAMES = ["January","February","March","April","May","June",
@@ -126,9 +126,6 @@ elif page == "Unmark Paid":
         else:
             st.warning(f"{selected} is not marked as paid for that month.")
 
-
-
-
 elif page == "View Payments":
     st.subheader("Payment History")
     month    = st.number_input("Month", min_value=1, max_value=12, value=datetime.now().month)
@@ -138,7 +135,37 @@ elif page == "View Payments":
     if payments.empty:
         st.info("No payments found for that month.")
     else:
-        st.dataframe(payments, width="stretch")
+        display_cols = ['name', 'category', 'amount', 'paid_date', 'notes']
+        st.dataframe(payments[display_cols], width="stretch")
+
+elif page == "Edit / Delete Bills":
+    st.subheader("Edit or Delete a Bill")
+    bills = db.get_bills()
+    if bills.empty:
+        st.info("No bills yet.")
+    else:
+        bill_names = bills['name'].tolist()
+        selected   = st.selectbox("Select a bill", bill_names)
+        bill       = bills[bills['name'] == selected].iloc[0]
+
+        name     = st.text_input("Bill Name", value=bill['name'])
+        amount   = st.number_input("Amount ($)", min_value=0.01, step=0.01, value=float(bill['amount']))
+        due_day  = st.number_input("Due Day", min_value=1, max_value=31, value=int(bill['due_day']))
+        category = st.selectbox("Category", db.CATEGORIES, index=db.CATEGORIES.index(bill['category']))
+        notes    = st.text_input("Notes", value=bill['notes'])
+
+        if st.button("Save Changes"):
+            db.update_bill(int(bill['id']), name, amount, due_day, category, bool(bill['is_recurring']), notes)
+            st.success(f"{name} updated!")
+
+        st.divider()
+        st.subheader("⚠️ Danger Zone")
+        confirm = st.checkbox(f"I want to permanently delete '{selected}'")
+        if confirm:
+            if st.button("Delete Bill"):
+                db.delete_bill(int(bill['id']))
+                st.success(f"{selected} deleted.")
+                st.rerun()
 
 
 
