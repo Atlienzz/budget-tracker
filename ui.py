@@ -7,9 +7,40 @@ db.init_db()
 
 st.title("💰 Budget Tracker")
 
-page = st.sidebar.radio("Menu", ["View Bills", "Add a Bill", "Mark Paid", "View Payments"])
+page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Mark Paid", "View Payments"])
 
-if page == "View Bills":
+if page == "Dashboard":
+    MONTH_NAMES = ["January","February","March","April","May","June",
+                   "July","August","September","October","November","December"]
+    
+    col_month, col_year = st.columns(2)
+    month_name = col_month.selectbox("Month", MONTH_NAMES, index=datetime.now().month - 1)
+    month      = MONTH_NAMES.index(month_name) + 1
+    year       = col_year.number_input("Year", min_value=2020, max_value=2030, value=datetime.now().year)
+
+    st.subheader(f"{month_name} {int(year)} Summary")
+
+    bills    = db.get_bills()
+    payments = db.get_payments_df(int(month), int(year))
+    total_bills     = bills['amount'].sum()
+    total_paid      = payments['amount'].sum()
+    total_remaining = total_bills - total_paid
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Bills", f"${total_bills:.2f}")
+    col2.metric("Paid",        f"${total_paid:.2f}")
+    col3.metric("Remaining",   f"${total_remaining:.2f}")
+
+    paid_ids   = payments['bill_id'].tolist()
+    unpaid     = bills[~bills['id'].isin(paid_ids)]
+
+    if not unpaid.empty:
+        st.subheader("Still Unpaid")
+        st.dataframe(unpaid[['name', 'category', 'amount', 'due_day']], width='stretch')
+    else:
+        st.success("All bills paid this month!")
+
+elif page == "View Bills":
     st.subheader("Your Bills")
     bills = db.get_bills()
     if bills.empty:
