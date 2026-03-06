@@ -7,7 +7,7 @@ db.init_db()
 
 st.title("💰 Budget Tracker")
 
-page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Mark Paid", "View Payments"])
+page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Mark Paid", "Unmark Paid", "View Payments"])
 
 if page == "Dashboard":
     MONTH_NAMES = ["January","February","March","April","May","June",
@@ -108,6 +108,24 @@ elif page == "Mark Paid":
         else:
             db.mark_paid(int(bill['id']), bill['amount'], int(month), int(year), notes)
             st.success(f"{selected} marked as paid!")
+
+elif page == "Unmark Paid":
+    bills = db.get_bills()
+    if bills.empty:
+        st.info("No bills yet. Go to Add a Bill to get started.")
+    else:
+        bill_names = bills['name'].tolist()
+        selected = st.selectbox("Select a bill", bill_names)
+        month    = st.number_input("Month", min_value=1, max_value=12, value=datetime.now().month)
+        year     = st.number_input("Year", min_value=2020, max_value=2030, value=datetime.now().year)
+    if st.button("Mark as Unpaid"):
+        bill = bills[bills['name'] == selected].iloc[0]
+        if db.is_paid(int(bill['id']), int(month), int(year)):
+            db.unmark_paid(int(bill['id']), int(month), int(year))
+            st.success(f"{selected} marked as unpaid!")
+        else:
+            st.warning(f"{selected} is not marked as paid for that month.")
+
 
 
 
