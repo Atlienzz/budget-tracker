@@ -43,9 +43,18 @@ def get_bill_emails(service, query='subject:bill OR subject:payment OR subject:i
         ).execute()
 
         subject = ''
+        date_str = ''
         for header in msg_data['payload']['headers']:
             if header['name'] == 'Subject':
                 subject = header['value']
+            elif header['name'] == 'Date':
+                date_str = header['value']
+
+        from email.utils import parsedate_to_datetime
+        try:
+            email_date = parsedate_to_datetime(date_str)
+        except Exception:
+            email_date = None
 
         body = ''
         if 'parts' in msg_data['payload']:
@@ -61,7 +70,8 @@ def get_bill_emails(service, query='subject:bill OR subject:payment OR subject:i
         emails.append({
             'id': msg['id'],
             'subject': subject,
-            'body': body
+            'body': body,
+            'date': email_date
         })
 
     return emails

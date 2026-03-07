@@ -33,10 +33,14 @@ Bill list:
 
     result = message.content[0].text
     lines      = result.strip().split("\n")
-    match      = lines[0].replace("MATCH: ", "").strip()
-    confidence = lines[1].replace("CONFIDENCE: ", "").strip()
+    try:
+        match      = lines[0].replace("MATCH: ", "").strip()
+        confidence = lines[1].replace("CONFIDENCE: ", "").strip()
+        matched_bill = bills[bills['name'] == match].iloc[0]
+        return matched_bill, confidence
+    except (IndexError, KeyError):
+        return None, "LOW"
 
-    matched_bill = bills[bills['name'] == match].iloc[0]
-    return matched_bill, confidence
+
 
 

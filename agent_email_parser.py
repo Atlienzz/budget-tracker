@@ -30,10 +30,16 @@ def extract_bill_info(email_text):
     lines = result.strip().split("\n")
     try:
         company = lines[0].replace("COMPANY: ", "").strip()
-        amount  = float(lines[1].replace("AMOUNT: ", "").strip())
+        if not company:
+            return None, None
+        try:
+            amount = float(lines[1].replace("AMOUNT: ", "").strip())
+        except (ValueError, IndexError):
+            amount = None
         return company, amount
-    except (ValueError, IndexError):
+    except (IndexError):
         return None, None
+
 
 
 
