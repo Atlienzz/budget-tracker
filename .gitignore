@@ -4,4 +4,5 @@ seed_bills.py
 seed_payments.py
 test_claude.py
 .env
-
+credentials.json
+token.json

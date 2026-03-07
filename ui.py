@@ -14,7 +14,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 st.title("💰 Ben & Heather's Bills")
 
-page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments"])
+page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments", "📧 Run Pipeline"])
 
 if page == "Dashboard":
     MONTH_NAMES = ["January","February","March","April","May","June",
@@ -219,3 +219,23 @@ elif page == "Edit / Delete Bills":
                 db.delete_bill(int(bill['id']))
                 st.success(f"{selected} deleted.")
                 st.rerun()
+
+elif page == "📧 Run Pipeline":
+    st.header("📧 Run Bill Pipeline")
+    st.write("Connects to Gmail, finds bill emails, and records payments automatically.")
+
+    if st.button("▶️ Run Pipeline Now"):
+        import io, sys
+        from bill_pipeline import run_gmail_pipeline
+
+        output_capture = io.StringIO()
+        sys.stdout = output_capture
+
+        with st.spinner("Running pipeline..."):
+            try:
+                run_gmail_pipeline()
+            finally:
+                sys.stdout = sys.__stdout__
+
+        output = output_capture.getvalue()
+        st.text(output)

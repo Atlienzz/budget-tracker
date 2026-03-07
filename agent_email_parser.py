@@ -28,22 +28,15 @@ Email:
 def extract_bill_info(email_text):
     result = parse_email(email_text)
     lines = result.strip().split("\n")
-    company = lines[0].replace("COMPANY: ", "").strip()
-    amount  = float(lines[1].replace("AMOUNT: ", "").strip())
-    return company, amount
+    try:
+        company = lines[0].replace("COMPANY: ", "").strip()
+        amount  = float(lines[1].replace("AMOUNT: ", "").strip())
+        return company, amount
+    except (ValueError, IndexError):
+        return None, None
 
 
-# Test it with a fake email
-fake_email = """
-From: billing@lendingclub.com
-Subject: Your payment of $415.00 is due
 
-Dear Customer,
-Your monthly payment of $415.00 is due on March 8th.
-Please log in to make your payment.
-"""
 
-company, amount = extract_bill_info(fake_email)
-print(f"Company: {company}")
-print(f"Amount:  ${amount:.2f}")
+
 

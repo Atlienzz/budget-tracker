@@ -39,8 +39,4 @@ Bill list:
     matched_bill = bills[bills['name'] == match].iloc[0]
     return matched_bill, confidence
 
-# Test it
-company, amount = "LendingClub", 415.00
-matched_bill, confidence = match_bill(company)
-print(f"Matched: {matched_bill['name']} (id={matched_bill['id']})")
-print(f"Confidence: {confidence}")
+
