@@ -2,9 +2,7 @@ import streamlit as st
 import database as db
 from datetime import datetime
 
-
 db.init_db()
-
 st.title("💰 Ben & Heather's Bills")
 
 page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments"])
@@ -12,20 +10,16 @@ page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit 
 if page == "Dashboard":
     MONTH_NAMES = ["January","February","March","April","May","June",
                    "July","August","September","October","November","December"]
-    
     col_month, col_year = st.columns(2)
     month_name = col_month.selectbox("Month", MONTH_NAMES, index=datetime.now().month - 1)
     month      = MONTH_NAMES.index(month_name) + 1
     year       = col_year.number_input("Year", min_value=2020, max_value=2030, value=datetime.now().year)
-
     st.subheader(f"{month_name} {int(year)} Summary")
-
     bills    = db.get_bills()
     payments = db.get_payments_df(int(month), int(year))
     total_bills     = bills['amount'].sum()
     total_paid      = payments['amount'].sum()
     total_remaining = total_bills - total_paid
-
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Bills", f"${total_bills:.2f}")
     col2.metric("Paid",        f"${total_paid:.2f}")
@@ -36,14 +30,9 @@ if page == "Dashboard":
         progress = paid_count / total_count
         st.progress(progress)
         st.caption(f"{paid_count} of {total_count} bills paid this month ({progress*100:.0f}%)")
-
-
-    paid_ids   = payments['bill_id'].tolist()
-    unpaid     = bills[~bills['id'].isin(paid_ids)]
-
-    unpaid = unpaid.copy()
-    today  = datetime.now()
-
+    paid_ids = payments['bill_id'].tolist()
+    unpaid   = bills[~bills['id'].isin(paid_ids)].copy()
+    today    = datetime.now()
     if int(month) == today.month and int(year) == today.year:
         unpaid.loc[:, 'days_until_due'] = unpaid['due_day'].apply(
             lambda d: f"{d - today.day} days" if d >= today.day else "Overdue")
@@ -57,25 +46,25 @@ if page == "Dashboard":
             cols = ['name', 'category', 'amount', 'due_day', 'days_until_due']
         else:
             cols = ['name', 'category', 'amount', 'due_day']
-
     if int(month) == today.month and int(year) == today.year:
+        overdue  = unpaid[unpaid['due_day'] < today.day]
         due_soon = unpaid[(unpaid['due_day'] >= today.day) & (unpaid['due_day'] <= today.day + 3)]
-        if not due_soon.empty:
-            for _, row in due_soon.iterrows():
-                days_left = int(row['due_day']) - today.day
-                if days_left == 0:
-                    st.error(f"🚨 {row['name']} is due TODAY — ${row['amount']:.2f}")
-                elif days_left == 1:
-                    st.warning(f"⚠️ {row['name']} is due TOMORROW — ${row['amount']:.2f}")
-                else:
-                    st.warning(f"⚠️ {row['name']} due in {days_left} days (day {int(row['due_day'])}) — ${row['amount']:.2f}")
-
+        for _, row in overdue.iterrows():
+            days_overdue = today.day - int(row['due_day'])
+            st.error(f"🚨 {row['name']} is {days_overdue} day(s) overdue (due day {int(row['due_day'])}) — ${row['amount']:.2f}")
+        for _, row in due_soon.iterrows():
+            days_left = int(row['due_day']) - today.day
+            if days_left == 0:
+                st.error(f"🚨 {row['name']} is due TODAY — ${row['amount']:.2f}")
+            elif days_left == 1:
+                st.warning(f"⚠️ {row['name']} is due TOMORROW — ${row['amount']:.2f}")
+            else:
+                st.warning(f"⚠️ {row['name']} due in {days_left} days (day {int(row['due_day'])}) — ${row['amount']:.2f}")
     if not unpaid.empty:
         st.subheader("Still Unpaid")
         st.dataframe(unpaid[cols].sort_values('due_day'), width='stretch')
     else:
         st.success("All bills paid this month!")
-
     if not payments.empty:
         st.subheader("Spending by Category")
         by_category = payments.groupby('category')['amount'].sum()
@@ -92,13 +81,11 @@ elif page == "View Bills":
 
 elif page == "Add a Bill":
     st.subheader("Add a New Bill")
-    
     name     = st.text_input("Bill Name")
     amount   = st.number_input("Amount ($)", min_value=0.01, step=0.01)
     due_day  = st.number_input("Due Day of Month", min_value=1, max_value=31, value=1)
     category = st.selectbox("Category", db.CATEGORIES)
     notes    = st.text_input("Notes (optional)")
-    
     if st.button("Add Bill"):
         if name:
             db.add_bill(name, amount, due_day, category, notes=notes)
@@ -112,14 +99,12 @@ elif page == "Mark Paid":
         st.info("No bills yet. Go to Add a Bill to get started.")
     else:
         st.dataframe(bills, width="stretch")
-        bills = db.get_bills()
+        bills      = db.get_bills()
         bill_names = bills['name'].tolist()
-        selected = st.selectbox("Select a bill", bill_names)
-        notes    = st.text_input("Payment note (optional)", placeholder="e.g. paid via autopay, paid late, etc.")
-        month    = st.number_input("Month", min_value=1, max_value=12, value=datetime.now().month)
-        year     = st.number_input("Year", min_value=2020, max_value=2030, value=datetime.now().year)
-
-
+        selected   = st.selectbox("Select a bill", bill_names)
+        notes      = st.text_input("Payment note (optional)", placeholder="e.g. paid via autopay, paid late, etc.")
+        month      = st.number_input("Month", min_value=1, max_value=12, value=datetime.now().month)
+        year       = st.number_input("Year", min_value=2020, max_value=2030, value=datetime.now().year)
     if st.button("Mark as Paid"):
         bill = bills[bills['name'] == selected].iloc[0]
         if db.is_paid(int(bill['id']), int(month), int(year)):
@@ -134,9 +119,9 @@ elif page == "Unmark Paid":
         st.info("No bills yet. Go to Add a Bill to get started.")
     else:
         bill_names = bills['name'].tolist()
-        selected = st.selectbox("Select a bill", bill_names)
-        month    = st.number_input("Month", min_value=1, max_value=12, value=datetime.now().month)
-        year     = st.number_input("Year", min_value=2020, max_value=2030, value=datetime.now().year)
+        selected   = st.selectbox("Select a bill", bill_names)
+        month      = st.number_input("Month", min_value=1, max_value=12, value=datetime.now().month)
+        year       = st.number_input("Year", min_value=2020, max_value=2030, value=datetime.now().year)
     if st.button("Mark as Unpaid"):
         bill = bills[bills['name'] == selected].iloc[0]
         if db.is_paid(int(bill['id']), int(month), int(year)):
@@ -150,13 +135,11 @@ elif page == "View Payments":
     month    = st.number_input("Month", min_value=1, max_value=12, value=datetime.now().month)
     year     = st.number_input("Year", min_value=2020, max_value=2030, value=datetime.now().year)
     payments = db.get_payments_df(int(month), int(year))
-
     if payments.empty:
         st.info("No payments found for that month.")
     else:
         display_cols = ['name', 'category', 'amount', 'paid_date', 'notes']
         st.dataframe(payments[display_cols], width="stretch")
-
         csv = payments[display_cols].to_csv(index=False)
         st.download_button(
             label="⬇️ Download CSV",
@@ -174,17 +157,14 @@ elif page == "Edit / Delete Bills":
         bill_names = bills['name'].tolist()
         selected   = st.selectbox("Select a bill", bill_names)
         bill       = bills[bills['name'] == selected].iloc[0]
-
         name     = st.text_input("Bill Name", value=bill['name'])
         amount   = st.number_input("Amount ($)", min_value=0.01, step=0.01, value=float(bill['amount']))
         due_day  = st.number_input("Due Day", min_value=1, max_value=31, value=int(bill['due_day']))
         category = st.selectbox("Category", db.CATEGORIES, index=db.CATEGORIES.index(bill['category']))
         notes    = st.text_input("Notes", value=bill['notes'])
-
         if st.button("Save Changes"):
             db.update_bill(int(bill['id']), name, amount, due_day, category, bool(bill['is_recurring']), notes)
             st.success(f"{name} updated!")
-
         st.divider()
         st.subheader("⚠️ Danger Zone")
         confirm = st.checkbox(f"I want to permanently delete '{selected}'")
@@ -193,6 +173,3 @@ elif page == "Edit / Delete Bills":
                 db.delete_bill(int(bill['id']))
                 st.success(f"{selected} deleted.")
                 st.rerun()
-
-
-
