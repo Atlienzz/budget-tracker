@@ -30,6 +30,13 @@ if page == "Dashboard":
     col1.metric("Total Bills", f"${total_bills:.2f}")
     col2.metric("Paid",        f"${total_paid:.2f}")
     col3.metric("Remaining",   f"${total_remaining:.2f}")
+    total_count = len(bills)
+    paid_count  = len(payments)
+    if total_count > 0:
+        progress = paid_count / total_count
+        st.progress(progress)
+        st.caption(f"{paid_count} of {total_count} bills paid this month ({progress*100:.0f}%)")
+
 
     paid_ids   = payments['bill_id'].tolist()
     unpaid     = bills[~bills['id'].isin(paid_ids)]
@@ -51,6 +58,18 @@ if page == "Dashboard":
         else:
             cols = ['name', 'category', 'amount', 'due_day']
 
+    if int(month) == today.month and int(year) == today.year:
+        due_soon = unpaid[(unpaid['due_day'] >= today.day) & (unpaid['due_day'] <= today.day + 3)]
+        if not due_soon.empty:
+            for _, row in due_soon.iterrows():
+                days_left = int(row['due_day']) - today.day
+                if days_left == 0:
+                    st.error(f"🚨 {row['name']} is due TODAY — ${row['amount']:.2f}")
+                elif days_left == 1:
+                    st.warning(f"⚠️ {row['name']} is due TOMORROW — ${row['amount']:.2f}")
+                else:
+                    st.warning(f"⚠️ {row['name']} due in {days_left} days (day {int(row['due_day'])}) — ${row['amount']:.2f}")
+
     if not unpaid.empty:
         st.subheader("Still Unpaid")
         st.dataframe(unpaid[cols].sort_values('due_day'), width='stretch')
@@ -62,14 +81,14 @@ if page == "Dashboard":
         by_category = payments.groupby('category')['amount'].sum()
         st.bar_chart(by_category)
 
-
 elif page == "View Bills":
     st.subheader("Your Bills")
     bills = db.get_bills()
     if bills.empty:
         st.info("No bills yet. Go to Add a Bill to get started.")
     else:
-        st.dataframe(bills, width='stretch')
+        display_cols = ['name', 'amount', 'due_day', 'category', 'notes']
+        st.dataframe(bills[display_cols], width='stretch')
 
 elif page == "Add a Bill":
     st.subheader("Add a New Bill")
@@ -137,6 +156,14 @@ elif page == "View Payments":
     else:
         display_cols = ['name', 'category', 'amount', 'paid_date', 'notes']
         st.dataframe(payments[display_cols], width="stretch")
+
+        csv = payments[display_cols].to_csv(index=False)
+        st.download_button(
+            label="⬇️ Download CSV",
+            data=csv,
+            file_name=f"payments_{int(month)}_{int(year)}.csv",
+            mime="text/csv"
+        )
 
 elif page == "Edit / Delete Bills":
     st.subheader("Edit or Delete a Bill")
