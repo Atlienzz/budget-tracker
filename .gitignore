@@ -2,3 +2,6 @@ budget_tracker.db
 __pycache__/
 seed_bills.py
 seed_payments.py
+test_claude.py
+.env
+
