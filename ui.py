@@ -60,15 +60,50 @@ if page == "Dashboard":
                 st.warning(f"⚠️ {row['name']} is due TOMORROW — ${row['amount']:.2f}")
             else:
                 st.warning(f"⚠️ {row['name']} due in {days_left} days (day {int(row['due_day'])}) — ${row['amount']:.2f}")
-    if not unpaid.empty:
-        st.subheader("Still Unpaid")
-        st.dataframe(unpaid[cols].sort_values('due_day'), width='stretch')
-    else:
-        st.success("All bills paid this month!")
+
+    left_col, right_col = st.columns(2)
+    with left_col:
+        if not unpaid.empty:
+            st.subheader("Still Unpaid")
+            st.dataframe(unpaid[cols].sort_values('due_day'), width='stretch')
+        else:
+            st.success("All bills paid this month!")
+    with right_col:
+        if not payments.empty:
+            st.subheader("Spending by Category")
+            by_category = payments.groupby('category')['amount'].sum()
+            st.bar_chart(by_category)
+
+    st.divider()
+    st.subheader("📊 Budget vs Actual")
+    budgets_df = db.get_budgets_df(int(month), int(year))
     if not payments.empty:
-        st.subheader("Spending by Category")
-        by_category = payments.groupby('category')['amount'].sum()
-        st.bar_chart(by_category)
+        by_cat = payments.groupby('category')['amount'].sum().reset_index()
+        by_cat.columns = ['category', 'spent']
+        if not budgets_df.empty:
+            budgets_renamed = budgets_df.rename(columns={'monthly_limit': 'budget'})[['category', 'budget']]
+            merged = budgets_renamed.merge(by_cat, on='category', how='left')
+            merged['spent'] = merged['spent'].fillna(0)
+            merged['status'] = merged.apply(
+                lambda r: '✅ Under' if r['budget'] > 0 and r['spent'] <= r['budget']
+                          else ('🚨 Over!' if r['budget'] > 0 and r['spent'] > r['budget']
+                          else '— No budget set'), axis=1)
+            merged['spent']  = merged['spent'].map('${:.2f}'.format)
+            merged['budget'] = merged['budget'].apply(lambda x: f'${x:.2f}' if x > 0 else '—')
+            st.dataframe(merged[['category', 'spent', 'budget', 'status']], width='stretch')
+        else:
+            st.info("No budgets set yet. Use 'Set Budgets' below to get started.")
+            by_cat['spent'] = by_cat['spent'].map('${:.2f}'.format)
+            st.dataframe(by_cat, width='stretch')
+    else:
+        st.info("No payments this month to compare against budgets.")
+
+    with st.expander("⚙️ Set Category Budgets"):
+        budget_cat = st.selectbox("Category", db.CATEGORIES, key="budget_cat")
+        budget_amt = st.number_input("Monthly Budget ($)", min_value=0.0, step=10.0, key="budget_amt")
+        if st.button("Save Budget", key="save_budget"):
+            db.set_budget(budget_cat, float(budget_amt), int(month), int(year))
+            st.success(f"Budget set for {budget_cat}: ${budget_amt:.2f}")
 
 elif page == "View Bills":
     st.subheader("Your Bills")
