@@ -1,6 +1,8 @@
 import streamlit as st
 import database as db
+import pandas as pd
 from datetime import datetime
+from database import get_connection
 
 db.init_db()
 st.set_page_config(layout="wide")
@@ -14,7 +16,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 st.title("💰 Ben & Heather's Bills")
 
-page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments", "📧 Run Pipeline", "📋 Pipeline Log", "🤖 Monthly Insights", "🔍 Agent Traces"])
+pending_count = db.get_pending_review_count()
+review_label  = f"👀 Review Queue ({pending_count})" if pending_count > 0 else "👀 Review Queue"
+
+page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments", "📧 Run Pipeline", "📋 Pipeline Log", "🤖 Monthly Insights", "🔍 Agent Traces", review_label])
 
 if page == "Dashboard":
     MONTH_NAMES = ["January","February","March","April","May","June",
@@ -69,6 +74,9 @@ if page == "Dashboard":
                 st.warning(f"⚠️ {row['name']} is due TOMORROW — ${row['amount']:.2f}")
             else:
                 st.warning(f"⚠️ {row['name']} due in {days_left} days (day {int(row['due_day'])}) — ${row['amount']:.2f}")
+
+    if pending_count > 0:
+        st.warning(f"⏸️ **{pending_count} item(s) in the Review Queue** need your attention — the AI wasn't confident enough to record them automatically.")
 
     left_col, right_col = st.columns(2)
     with left_col:
@@ -269,6 +277,88 @@ elif page == "🤖 Monthly Insights":
     if st.button("Generate Insights"):
         from agent_insight import generate_monthly_insight
         st.write_stream(generate_monthly_insight(int(month), int(year)))
+
+elif page.startswith("👀 Review Queue"):
+    from agent_payment_recorder import record_payment
+
+    st.header("👀 Review Queue")
+    st.caption("Items the AI wasn't confident enough to record automatically. You decide.")
+
+    pending = db.get_pending_reviews()
+
+    if pending.empty:
+        st.success("Nothing pending — all caught up!")
+    else:
+        st.info(f"**{len(pending)} item(s)** waiting for your review")
+        bills    = db.get_bills()
+        bill_map = dict(zip(bills['name'], bills.index))  # name → df index
+
+        for _, item in pending.iterrows():
+            amount_str = f"${item['amount']:.2f}" if item['amount'] else "amount unknown"
+            label      = f"🔍 {item['company_name']}  →  {item['suggested_bill_name'] or 'no suggestion'}  |  {amount_str}"
+
+            with st.expander(label, expanded=True):
+                col_info, col_actions = st.columns([2, 3])
+
+                with col_info:
+                    st.markdown(f"**Detected company:** {item['company_name']}")
+                    st.markdown(f"**AI suggested:** {item['suggested_bill_name'] or '—'}")
+                    st.markdown(f"**Amount:** {amount_str}")
+                    st.markdown(f"**Email:** {item['email_subject'] or '—'}")
+                    st.markdown(f"**Email date:** {item['email_date'] or '—'}")
+                    st.caption(f"Queued: {item['created_at']}")
+
+                with col_actions:
+                    # ── Confirm AI's suggestion ──────────────────────────
+                    if item['suggested_bill_id']:
+                        if st.button("✅ Confirm AI suggestion", key=f"confirm_{item['id']}"):
+                            suggested = bills[bills['id'] == item['suggested_bill_id']]
+                            if not suggested.empty:
+                                bill_row = suggested.iloc[0]
+                                amount   = item['amount'] if item['amount'] else bill_row['amount']
+                                record_payment(bill_row, amount, email_date=item['email_date'],
+                                               notes="Recorded via review queue (confirmed)")
+                                db.resolve_review(item['id'], 'approved', int(item['suggested_bill_id']))
+                                st.success(f"Recorded as {bill_row['name']}!")
+                                st.rerun()
+
+                    # ── Pick a different bill ────────────────────────────
+                    st.markdown("**Or pick a different bill:**")
+                    corrected_name = st.selectbox(
+                        "Select bill", ["— choose —"] + bills['name'].tolist(),
+                        key=f"select_{item['id']}"
+                    )
+                    if corrected_name != "— choose —":
+                        if st.button("🔄 Record with this bill", key=f"correct_{item['id']}"):
+                            bill_row = bills[bills['name'] == corrected_name].iloc[0]
+                            amount   = item['amount'] if item['amount'] else bill_row['amount']
+                            record_payment(bill_row, amount, email_date=item['email_date'],
+                                           notes=f"Recorded via review queue (corrected from '{item['suggested_bill_name']}')")
+                            db.resolve_review(item['id'], 'corrected', int(bill_row['id']))
+                            st.success(f"Recorded as {corrected_name}!")
+                            st.rerun()
+
+                    st.divider()
+
+                    # ── Dismiss ──────────────────────────────────────────
+                    if st.button("❌ Dismiss (not a bill payment)", key=f"dismiss_{item['id']}"):
+                        db.resolve_review(item['id'], 'rejected')
+                        st.info("Dismissed.")
+                        st.rerun()
+
+    # ── Resolved history ─────────────────────────────────────────────────
+    st.divider()
+    st.subheader("Resolved History")
+    with get_connection() as conn:
+        history = pd.read_sql_query(
+            "SELECT * FROM review_queue WHERE status != 'pending' ORDER BY resolved_at DESC LIMIT 20",
+            conn,
+        )
+    if history.empty:
+        st.caption("No resolved items yet.")
+    else:
+        display_cols = ['company_name', 'suggested_bill_name', 'amount', 'status', 'resolved_at']
+        st.dataframe(history[display_cols], use_container_width=True)
 
 elif page == "🔍 Agent Traces":
     import json

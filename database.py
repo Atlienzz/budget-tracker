@@ -82,6 +82,23 @@ def init_db():
         """)
 
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS review_queue (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                email_subject       TEXT    DEFAULT '',
+                company_name        TEXT    NOT NULL,
+                suggested_bill_id   INTEGER,
+                suggested_bill_name TEXT    DEFAULT '',
+                amount              REAL,
+                email_date          TEXT    DEFAULT '',
+                pipeline_run_id     TEXT    DEFAULT '',
+                status              TEXT    DEFAULT 'pending',
+                resolved_bill_id    INTEGER,
+                created_at          TEXT    NOT NULL,
+                resolved_at         TEXT
+            )
+        """)
+
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS agent_traces (
                 id                 INTEGER PRIMARY KEY AUTOINCREMENT,
                 pipeline_run_id    TEXT    NOT NULL,
@@ -285,6 +302,59 @@ def get_traces_for_run(pipeline_run_id: str):
             conn,
             params=(pipeline_run_id,),
         )
+
+
+# ── Review Queue ────────────────────────────────────────────────────────────────
+
+def add_to_review_queue(email_subject, company_name, suggested_bill_id,
+                        suggested_bill_name, amount, email_date, pipeline_run_id):
+    """Park a LOW-confidence match for human review."""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO review_queue
+                (email_subject, company_name, suggested_bill_id, suggested_bill_name,
+                 amount, email_date, pipeline_run_id, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+            """,
+            (email_subject, company_name, suggested_bill_id, suggested_bill_name,
+             amount, email_date, pipeline_run_id,
+             datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+        )
+        conn.commit()
+
+
+def get_pending_reviews():
+    """Return all pending review queue items."""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            "SELECT * FROM review_queue WHERE status='pending' ORDER BY created_at DESC",
+            conn,
+        )
+
+
+def get_pending_review_count():
+    """Return count of pending items — used for dashboard badge."""
+    with get_connection() as conn:
+        result = conn.execute(
+            "SELECT COUNT(*) FROM review_queue WHERE status='pending'"
+        ).fetchone()
+    return result[0]
+
+
+def resolve_review(review_id, status, resolved_bill_id=None):
+    """Mark a review item as approved, corrected, or rejected."""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE review_queue
+            SET status=?, resolved_bill_id=?, resolved_at=?
+            WHERE id=?
+            """,
+            (status, resolved_bill_id,
+             datetime.now().strftime("%Y-%m-%d %H:%M:%S"), review_id),
+        )
+        conn.commit()
 
 
 def update_trace_result(trace):

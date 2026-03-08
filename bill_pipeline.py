@@ -6,7 +6,8 @@ from agent_email_parser import extract_bill_info
 from agent_bill_matcher import match_bill
 from agent_payment_recorder import record_payment
 
-def process_bill_email(email_text, email_date=None, pipeline_run_id: str = "manual"):
+def process_bill_email(email_text, email_date=None, pipeline_run_id: str = "manual",
+                       email_subject: str = ""):
     print("📧 Step 1: Parsing email...")
     company, amount = extract_bill_info(email_text, pipeline_run_id=pipeline_run_id)
     if company is None:
@@ -23,7 +24,17 @@ def process_bill_email(email_text, email_date=None, pipeline_run_id: str = "manu
         return
     print(f"   Matched: {matched_bill['name']} (Confidence: {confidence})")
     if confidence == "LOW":
-        print(f"⚠️  Low confidence: '{company}' → '{matched_bill['name']}' — skipping.")
+        # Instead of discarding, park it for human review
+        db.add_to_review_queue(
+            email_subject    = email_subject,
+            company_name     = company,
+            suggested_bill_id   = int(matched_bill['id']),
+            suggested_bill_name = matched_bill['name'],
+            amount           = amount,
+            email_date       = email_date or "",
+            pipeline_run_id  = pipeline_run_id,
+        )
+        print(f"⏸️  Low confidence queued for review: '{company}' → '{matched_bill['name']}'")
         return
     if amount is None:
         amount = matched_bill['amount']
@@ -89,7 +100,9 @@ def run_gmail_pipeline(token_files=None):
             continue
         print(f"📧 Processing: {email['subject']}")
         email_text = f"Subject: {email['subject']}\n\n{email['body']}"
-        process_bill_email(email_text, email_date=email['date'], pipeline_run_id=pipeline_run_id)
+        process_bill_email(email_text, email_date=email['date'],
+                           pipeline_run_id=pipeline_run_id,
+                           email_subject=email['subject'])
         db.mark_email_processed(email['id'])
         print()
 
