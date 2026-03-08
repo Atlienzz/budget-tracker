@@ -1,4 +1,4 @@
 @echo off
 cd /d "C:\Users\Atlie\Projects\budget-tracker"
-"C:\Python314\python.exe" bill_pipeline.py
+"C:\Users\Atlie\Projects\budget-tracker\venv\Scripts\python.exe" bill_pipeline.py
 
