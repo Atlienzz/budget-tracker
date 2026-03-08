@@ -61,4 +61,22 @@ def run_gmail_pipeline(token_files=None):
 
 
 if __name__ == '__main__':
-    run_gmail_pipeline()
+    import io, sys
+    import database as db
+
+    output_capture = io.StringIO()
+    sys.stdout = output_capture
+
+    try:
+        run_gmail_pipeline()
+    finally:
+        sys.stdout = sys.__stdout__
+
+    output = output_capture.getvalue()
+    print(output)
+
+    total    = output.count("📧 Processing:")
+    recorded = output.count("marked as paid")
+    skipped  = output.count("skipping") + output.count("already paid")
+    db.save_pipeline_log(total, recorded, skipped, output)
+
