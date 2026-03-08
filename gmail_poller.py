@@ -4,6 +4,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from bs4 import BeautifulSoup
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
@@ -27,6 +28,31 @@ def get_gmail_service(credentials_file='credentials.json', token_file='token.jso
 
 
     return build('gmail', 'v1', credentials=creds)
+
+def _extract_body(payload):
+    if 'parts' in payload:
+        # Pass 1: prefer plain text
+        for part in payload['parts']:
+            if part['mimeType'] == 'text/plain':
+                data = part['body'].get('data', '')
+                if data:
+                    return base64.urlsafe_b64decode(data).decode('utf-8')
+        # Pass 2: recurse into nested multipart (e.g. multipart/alternative)
+        for part in payload['parts']:
+            if part['mimeType'].startswith('multipart/'):
+                result = _extract_body(part)
+                if result:
+                    return result
+        # Pass 3: fall back to HTML, strip tags
+        for part in payload['parts']:
+            if part['mimeType'] == 'text/html':
+                data = part['body'].get('data', '')
+                if data:
+                    html = base64.urlsafe_b64decode(data).decode('utf-8')
+                    return BeautifulSoup(html, 'html.parser').get_text(separator=' ')
+    elif payload.get('body', {}).get('data'):
+        return base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
+    return ''
 
 def get_bill_emails(service, query='subject:bill OR subject:payment OR subject:invoice OR subject:due', max_results=50, after_date=None):
     if after_date:
@@ -63,16 +89,7 @@ def get_bill_emails(service, query='subject:bill OR subject:payment OR subject:i
         except Exception:
             email_date = None
 
-        body = ''
-        if 'parts' in msg_data['payload']:
-            for part in msg_data['payload']['parts']:
-                if part['mimeType'] == 'text/plain':
-                    data = part['body'].get('data', '')
-                    body = base64.urlsafe_b64decode(data).decode('utf-8')
-                    break
-        elif 'body' in msg_data['payload']:
-            data = msg_data['payload']['body'].get('data', '')
-            body = base64.urlsafe_b64decode(data).decode('utf-8')
+        body = _extract_body(msg_data['payload'])
 
         emails.append({
             'id': msg['id'],
