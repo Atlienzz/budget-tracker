@@ -20,20 +20,25 @@ from typing import Optional
 
 import database as db
 
-# ── Pricing (claude-haiku-4-5) ─────────────────────────────────────────
-# https://www.anthropic.com/pricing
-COST_PER_TOKEN = {
-    "input":       0.80  / 1_000_000,   # $0.80 per million input tokens
-    "output":      4.00  / 1_000_000,   # $4.00 per million output tokens
-    "cache_write": 1.00  / 1_000_000,   # $1.00 per million cache-write tokens
-    "cache_read":  0.08  / 1_000_000,   # $0.08 per million cache-read tokens
+# ── Pricing per model ──────────────────────────────────────────────────
+# https://www.anthropic.com/pricing  (prices per million tokens)
+MODEL_COSTS = {
+    "claude-haiku-4-5": {
+        "input":       0.80  / 1_000_000,
+        "output":      4.00  / 1_000_000,
+        "cache_write": 1.00  / 1_000_000,
+        "cache_read":  0.08  / 1_000_000,
+    },
+    "claude-sonnet-4-5": {
+        "input":       3.00  / 1_000_000,
+        "output":      15.00 / 1_000_000,
+        "cache_write": 3.75  / 1_000_000,
+        "cache_read":  0.30  / 1_000_000,
+    },
 }
 
-MODEL_COSTS = {
-    "claude-haiku-4-5": COST_PER_TOKEN,
-    # Add other models here as needed, e.g.:
-    # "claude-sonnet-4-5": {"input": 3.00/1_000_000, "output": 15.00/1_000_000, ...}
-}
+# Fallback pricing (haiku rates) if an unknown model is used
+_DEFAULT_COSTS = MODEL_COSTS["claude-haiku-4-5"]
 
 
 @dataclass
@@ -57,7 +62,7 @@ class AgentTrace:
 def calculate_cost(model: str, input_tokens: int, output_tokens: int,
                    cache_read_tokens: int = 0, cache_write_tokens: int = 0) -> float:
     """Calculate USD cost for an API call based on token counts."""
-    pricing = MODEL_COSTS.get(model, COST_PER_TOKEN)
+    pricing = MODEL_COSTS.get(model, _DEFAULT_COSTS)
     return (
         input_tokens       * pricing["input"] +
         output_tokens      * pricing["output"] +

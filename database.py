@@ -118,6 +118,17 @@ def init_db():
             )
         """)
 
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS mcp_interactions (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id     TEXT    NOT NULL,
+                tool_name      TEXT    NOT NULL,
+                input_summary  TEXT    DEFAULT '',
+                response_chars INTEGER DEFAULT 0,
+                timestamp      TEXT    NOT NULL
+            )
+        """)
+
         conn.commit()
 
 
@@ -382,3 +393,81 @@ def get_recent_pipeline_run_ids(limit: int = 20):
             (limit,),
         ).fetchall()
     return rows
+
+
+# ── MCP Interactions ─────────────────────────────────────────────────────────
+
+def log_mcp_interaction(session_id: str, tool_name: str,
+                        input_summary: str = "", response_chars: int = 0):
+    """Log a single MCP tool invocation from Claude Desktop."""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO mcp_interactions
+                (session_id, tool_name, input_summary, response_chars, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (session_id, tool_name, input_summary, response_chars,
+             datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+        )
+        conn.commit()
+
+
+def get_mcp_interactions(limit: int = 100):
+    """Return recent MCP tool invocations."""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            "SELECT * FROM mcp_interactions ORDER BY timestamp DESC LIMIT ?",
+            conn, params=(limit,)
+        )
+
+
+def get_mcp_stats() -> dict:
+    """Return aggregate MCP usage stats for the Cost Dashboard."""
+    with get_connection() as conn:
+        total = conn.execute(
+            "SELECT COUNT(*) FROM mcp_interactions"
+        ).fetchone()[0]
+
+        sessions = conn.execute(
+            "SELECT COUNT(DISTINCT session_id) FROM mcp_interactions"
+        ).fetchone()[0]
+
+        recent_7d = conn.execute(
+            "SELECT COUNT(*) FROM mcp_interactions WHERE timestamp >= date('now', '-7 days')"
+        ).fetchone()[0]
+
+        by_tool = pd.read_sql_query(
+            """
+            SELECT tool_name, COUNT(*) as call_count
+            FROM mcp_interactions
+            GROUP BY tool_name
+            ORDER BY call_count DESC
+            """,
+            conn
+        )
+
+    return {
+        "total_calls":      total,
+        "total_sessions":   sessions,
+        "calls_last_7_days": recent_7d,
+        "by_tool":          by_tool.to_dict("records") if not by_tool.empty else [],
+    }
+
+
+def get_agent_model_breakdown():
+    """Return per-model cost and call counts across all pipeline runs."""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT model,
+                   COUNT(*) as calls,
+                   SUM(input_tokens + output_tokens) as total_tokens,
+                   SUM(cost_usd) as total_cost,
+                   AVG(latency_ms) as avg_latency_ms
+            FROM agent_traces
+            GROUP BY model
+            ORDER BY total_cost DESC
+            """,
+            conn
+        )

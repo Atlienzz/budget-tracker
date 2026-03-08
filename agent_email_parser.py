@@ -2,6 +2,7 @@ import anthropic
 from dotenv import load_dotenv
 import os
 import tracer
+import model_router
 
 load_dotenv(override=True)
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -30,12 +31,13 @@ TOOL = {
 }
 
 def parse_email(email_text, pipeline_run_id: str = "manual"):
+    model, routing_reason = model_router.route_email_parser(email_text)
     message, trace = tracer.trace_call(
         client,
         pipeline_run_id=pipeline_run_id,
         agent_name="email_parser",
-        input_summary=email_text[:120].replace("\n", " "),
-        model="claude-haiku-4-5",
+        input_summary=f"[{routing_reason}] {email_text[:100].replace(chr(10), ' ')}",
+        model=model,
         max_tokens=256,
         tools=[TOOL],
         tool_choice={"type": "any"},

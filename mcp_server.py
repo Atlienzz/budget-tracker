@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import io
+import uuid
 from datetime import datetime
 
 # ── Point to project root so database.py finds budget_tracker.db ─────────────
@@ -18,9 +19,21 @@ from mcp import types
 db.init_db()
 server = Server("budget-tracker")
 
+# One session ID per server process — groups all tool calls made in a single
+# Claude Desktop conversation. Resets each time Claude Desktop reconnects.
+SESSION_ID = str(uuid.uuid4())
+
 # ── Helper: pandas DataFrame → plain list of dicts ───────────────────────────
 def df_to_list(df):
     return json.loads(df.to_json(orient="records", date_format="iso"))
+
+
+def _summarize_args(arguments: dict) -> str:
+    """Compact, readable summary of tool arguments for the interaction log."""
+    if not arguments:
+        return "(no args)"
+    return ", ".join(f"{k}={v}" for k, v in arguments.items())
+
 
 # ── Tool Definitions ──────────────────────────────────────────────────────────
 @server.list_tools()
@@ -70,11 +83,16 @@ async def list_tools():
             description="Fetch new emails from Gmail and automatically record any bill payments found",
             inputSchema={"type": "object", "properties": {}}
         ),
+        types.Tool(
+            name="get_mcp_stats",
+            description="Get usage statistics for this MCP server — how many times each tool has been called, across how many sessions, and recent activity",
+            inputSchema={"type": "object", "properties": {}}
+        ),
     ]
 
-# ── Tool Handlers ─────────────────────────────────────────────────────────────
-@server.call_tool()
-async def call_tool(name: str, arguments: dict):
+
+# ── Internal tool dispatch (no logging here — logging happens in call_tool) ───
+async def _dispatch_tool(name: str, arguments: dict):
 
     # ── get_bills ─────────────────────────────────────────────────────────────
     if name == "get_bills":
@@ -212,8 +230,28 @@ async def call_tool(name: str, arguments: dict):
         )
         return [types.TextContent(type="text", text=summary)]
 
+    # ── get_mcp_stats ─────────────────────────────────────────────────────────
+    elif name == "get_mcp_stats":
+        stats = db.get_mcp_stats()
+        stats["current_session_id"] = SESSION_ID
+        return [types.TextContent(type="text", text=json.dumps(stats, indent=2))]
+
     else:
         return [types.TextContent(type="text", text=f"Unknown tool: {name}")]
+
+
+# ── Tool Handlers (with interaction logging) ──────────────────────────────────
+@server.call_tool()
+async def call_tool(name: str, arguments: dict):
+    result        = await _dispatch_tool(name, arguments)
+    response_text = result[0].text if result else ""
+    db.log_mcp_interaction(
+        session_id     = SESSION_ID,
+        tool_name      = name,
+        input_summary  = _summarize_args(arguments),
+        response_chars = len(response_text),
+    )
+    return result
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
