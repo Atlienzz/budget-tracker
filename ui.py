@@ -114,8 +114,6 @@ if page == "Dashboard":
             db.set_budget(budget_cat, float(budget_amt), int(month), int(year))
             st.success(f"Budget set for {budget_cat}: ${budget_amt:.2f}")
 
-
-
 elif page == "View Bills":
     st.subheader("Your Bills")
     bills = db.get_bills()
@@ -256,6 +254,6 @@ elif page == "📋 Pipeline Log":
         st.info("No pipeline runs yet.")
     else:
         for _, row in logs.iterrows():
-            with st.expander(f"🕐 {row['run_timestamp']} — {row['recorded_count']} recorded, {row['skipped_count']} skipped"):
+            with st.expander(f"🕐 {row['run_timestamp']} — {row['recorded_count']} recorded, {row['skipped_count']} skipped  |  {row.get('source', 'manual')}"):
                 st.text(row['log_text'])
 

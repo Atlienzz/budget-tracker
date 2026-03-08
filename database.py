@@ -68,6 +68,18 @@ def init_db():
             )
         """)
 
+        try:
+            conn.execute("ALTER TABLE pipeline_logs ADD COLUMN source TEXT DEFAULT 'manual'")
+        except Exception:
+            pass  # column already exists
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS processed_emails (
+                email_id TEXT PRIMARY KEY,
+                processed_at TEXT NOT NULL
+            )
+        """)
+
         conn.commit()
 
 
@@ -169,11 +181,13 @@ def get_budgets_df(month, year):
             params=(month, year),
         )
     
-def save_pipeline_log(total_emails, recorded_count, skipped_count, log_text):
+# ── Pipeline Logs & Email ID (late DB additions) ────────────────────────────────────────────────────────────────────
+    
+def save_pipeline_log(total_emails, recorded_count, skipped_count, log_text, source="manual"):
     with get_connection() as conn:
         conn.execute(
-            "INSERT INTO pipeline_logs (run_timestamp, total_emails, recorded_count, skipped_count, log_text) VALUES (?, ?, ?, ?, ?)",
-            (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), total_emails, recorded_count, skipped_count, log_text),
+            "INSERT INTO pipeline_logs (run_timestamp, total_emails, recorded_count, skipped_count, log_text, source) VALUES (?, ?, ?, ?, ?, ?)",
+            (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), total_emails, recorded_count, skipped_count, log_text, source),
         )
         conn.commit()
 
@@ -183,3 +197,20 @@ def get_pipeline_logs(limit=10):
             "SELECT * FROM pipeline_logs ORDER BY run_timestamp DESC LIMIT ?",
             conn, params=(limit,)
         )
+
+def is_email_processed(email_id):
+    with get_connection() as conn:
+        result = conn.execute(
+            "SELECT COUNT(*) FROM processed_emails WHERE email_id=?", (email_id,)
+        ).fetchone()
+    return result[0] > 0
+
+def mark_email_processed(email_id):
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO processed_emails (email_id, processed_at) VALUES (?, ?)",
+            (email_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+        )
+        conn.commit()
+   
+

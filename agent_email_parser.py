@@ -12,11 +12,18 @@ def parse_email(email_text):
         messages=[
             {
                 "role": "user",
-                "content": f"""You are a bill payment assistant. Extract the company name and payment amount from this email. This could be a bill statement, payment reminder, or payment confirmation (e.g. "your payment has been processed").
+                "content": f"""You are a bill payment assistant. Your job is to identify payment CONFIRMATION emails only.
 
-If this email is related to a bill, subscription, loan, utility, insurance, or any recurring payment — extract the company and amount. The amount may be labeled as "amount due", "payment amount", "amount paid", "payment processed", or similar.
+Only extract information if this email confirms a payment was received, processed, or completed — such as "your payment has been received", "payment processed", "we received your payment", "autopay payment posted", etc.
 
-If this email has nothing to do with bills or payments, reply with:
+Do NOT extract from:
+- Payment reminders or upcoming payment alerts
+- Bill statements or account summaries  
+- Usage reports or account activity notifications
+- Scheduled payment notifications (payment not yet taken)
+- Minimum payment due alerts
+
+If this email is NOT a confirmed payment, reply with:
 NOT_A_BILL
 
 Otherwise reply in this exact format and nothing else:
@@ -25,6 +32,7 @@ AMOUNT: <amount as a number only, no $ sign, or UNKNOWN if no amount found>
 
 Email:
 {email_text}"""
+
             }
         ]
     )

@@ -1,5 +1,6 @@
 import gmail_poller
 import os
+import database as db
 from agent_email_parser import extract_bill_info
 from agent_bill_matcher import match_bill
 from agent_payment_recorder import record_payment
@@ -30,7 +31,6 @@ def process_bill_email(email_text, email_date=None):
     record_payment(matched_bill, amount, email_date=email_date)
     print("✅ Pipeline complete!")
 
-
 import os
 
 def run_gmail_pipeline(token_files=None):
@@ -53,16 +53,46 @@ def run_gmail_pipeline(token_files=None):
 
     print(f"\n📊 Total: {len(all_emails)} emails to process\n")
 
+    SKIP_KEYWORDS = [
+    # Marketing / retail
+    'unsubscribe', 'sale', 'deal', 'offer', 'coupon', 'promo', 'discount',
+    'newsletter', 'limited time', 'exclusive', 'flash sale', '%  off',
+    # Shopping / orders
+    'order confirmation', 'order shipped', 'order delivered', 'order update',
+    'shipping', 'tracking', 'delivered', 'out for delivery', 'your package',
+    # Account / auth (non-billing)
+    'verify', 'verification', 'welcome', 'confirm your', 'reset your password',
+    'sign in', 'login attempt', 'new device',
+    # Surveys / misc
+    'survey', 'feedback', 'how did we do', 'rate your', 'unsubscribe',
+    'you\'ve been selected', 'congratulations',
+    # Payment reminders & non-confirmation bill emails
+    'upcoming', 'due alert', 'minimum payment due', 'statement is ready',
+    'bill statement', 'peak hours', 'bill period', 'you spent',
+    'last day to make changes', 'scheduled for',
+
+]
+
     for email in all_emails:
+        subject_lower = email['subject'].lower()
+        if any(kw in subject_lower for kw in SKIP_KEYWORDS):
+            print(f"⏭️ Skipping (subject filter): {email['subject']}")
+            print()
+            continue
+        if db.is_email_processed(email['id']):
+            print(f"⏭️ Already processed: {email['subject']}")
+            print()
+            continue
         print(f"📧 Processing: {email['subject']}")
         email_text = f"Subject: {email['subject']}\n\n{email['body']}"
         process_bill_email(email_text, email_date=email['date'])
+        db.mark_email_processed(email['id'])
         print()
-
 
 if __name__ == '__main__':
     import io, sys
-    import database as db
+    
+    db.init_db()
 
     output_capture = io.StringIO()
     sys.stdout = output_capture
@@ -78,5 +108,5 @@ if __name__ == '__main__':
     total    = output.count("📧 Processing:")
     recorded = output.count("marked as paid")
     skipped  = output.count("skipping") + output.count("already paid")
-    db.save_pipeline_log(total, recorded, skipped, output)
+    db.save_pipeline_log(total, recorded, skipped, output, source="scheduler")
 
