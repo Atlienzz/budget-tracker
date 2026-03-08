@@ -40,15 +40,24 @@ def match_bill(company_name):
     messages = [
         {
             "role": "user",
-            "content": f"""You are a bill matching assistant. Match this company to the correct bill.
+            "content": [
+                {
+                    "type": "text",
+                    "text": """You are a bill matching assistant. Match this company to the correct bill.
 
 IMPORTANT: Bill companies are typically financial services, utilities, insurance providers, loan servicers, or subscription services. Retail stores and one-time purchase companies are NOT bills — use LOW confidence for these.
 
-First call get_bills to see the bill list, then call record_match with your answer.
-
-Company to match: {company_name}"""
+First call get_bills to see the bill list, then call record_match with your answer.""",
+                    "cache_control": {"type": "ephemeral"}
+                },
+                {
+                    "type": "text",
+                    "text": f"Company to match: {company_name}"
+                }
+            ]
         }
     ]
+
 
     bills_df = None
 
