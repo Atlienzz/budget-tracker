@@ -14,7 +14,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 st.title("💰 Ben & Heather's Bills")
 
-page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments", "📧 Run Pipeline", "📋 Pipeline Log"])
+page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments", "📧 Run Pipeline", "📋 Pipeline Log", "🤖 Monthly Insights"])
 
 if page == "Dashboard":
     MONTH_NAMES = ["January","February","March","April","May","June",
@@ -257,3 +257,17 @@ elif page == "📋 Pipeline Log":
             with st.expander(f"🕐 {row['run_timestamp']} — {row['recorded_count']} recorded, {row['skipped_count']} skipped  |  {row.get('source', 'manual')}"):
                 st.text(row['log_text'])
 
+elif page == "🤖 Monthly Insights":
+    st.header("🤖 Monthly Insights")
+    MONTH_NAMES = ["January","February","March","April","May","June",
+                   "July","August","September","October","November","December"]
+    col_month, col_year = st.columns(2)
+    month_name = col_month.selectbox("Month", MONTH_NAMES, index=datetime.now().month - 1)
+    month      = MONTH_NAMES.index(month_name) + 1
+    year       = col_year.number_input("Year", min_value=2020, max_value=2030, value=datetime.now().year)
+
+    if st.button("Generate Insights"):
+        from agent_insight import generate_monthly_insight
+        with st.spinner("Analyzing your bills..."):
+            insight = generate_monthly_insight(int(month), int(year))
+        st.markdown(insight)

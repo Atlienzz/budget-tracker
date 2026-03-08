@@ -5,60 +5,77 @@ import os
 load_dotenv()
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
+TOOL = {
+    "name": "extract_payment_info",
+    "description": "Extract payment confirmation details from an email",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "is_payment_confirmation": {
+                "type": "boolean",
+                "description": "True only if this email confirms a payment was received or processed"
+            },
+            "company": {
+                "type": "string",
+                "description": "The company that received the payment"
+            },
+            "amount": {
+                "type": "number",
+                "description": "The payment amount as a number, no currency symbols"
+            }
+        },
+        "required": ["is_payment_confirmation"]
+    }
+}
+
 def parse_email(email_text):
     message = client.messages.create(
         model="claude-haiku-4-5",
         max_tokens=256,
+        tools=[TOOL],
+        tool_choice={"type": "any"},
         messages=[
             {
                 "role": "user",
-                "content": f"""You are a bill payment assistant. Your job is to identify payment CONFIRMATION emails only.
+                "content": f"""You are a bill payment assistant. Analyze this email and call extract_payment_info.
 
-Only extract information if this email confirms a payment was received, processed, or completed — such as "your payment has been received", "payment processed", "we received your payment", "autopay payment posted", etc.
+Only set is_payment_confirmation=true if this email confirms a payment was received, processed, or completed.
 
-Do NOT extract from:
+Do NOT treat these as confirmations:
 - Payment reminders or upcoming payment alerts
-- Bill statements or account summaries  
+- Bill statements or account summaries
 - Usage reports or account activity notifications
 - Scheduled payment notifications (payment not yet taken)
 - Minimum payment due alerts
 
-If this email is NOT a confirmed payment, reply with:
-NOT_A_BILL
-
-Otherwise reply in this exact format and nothing else:
-COMPANY: <company name>
-AMOUNT: <amount as a number only, no $ sign, or UNKNOWN if no amount found>
-
 Email:
 {email_text}"""
-
             }
         ]
     )
-    return message.content[0].text
+
+    for block in message.content:
+        if block.type == "tool_use":
+            return block.input
+
+    return {"is_payment_confirmation": False}
+
 
 def extract_bill_info(email_text):
     result = parse_email(email_text)
-    lines = result.strip().split("\n")
-    try:
-        if not lines[0].startswith("COMPANY:"):    # ← add this check
-            return None, None
-        company = lines[0].replace("COMPANY: ", "").strip()
-        if not company:
-            return None, None
-        try:
-            amount = float(lines[1].replace("AMOUNT: ", "").strip())
-        except (ValueError, IndexError):
-            amount = None
-        return company, amount
-    except (IndexError):
+
+    if not result.get("is_payment_confirmation"):
         return None, None
 
+    company = result.get("company", "").strip()
+    if not company:
+        return None, None
 
+    amount = result.get("amount")
+    if amount is not None:
+        try:
+            amount = float(amount)
+        except (ValueError, TypeError):
+            amount = None
 
-
-
-
-
-
+    return company, amount
