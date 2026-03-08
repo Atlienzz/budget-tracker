@@ -3,6 +3,8 @@ __pycache__/
 seed_bills.py
 seed_payments.py
 test_claude.py
+test_parser.py
+test_*.py
 .env
 credentials.json
 token.json
@@ -11,3 +13,7 @@ Lib/
 Scripts/
 etc/
 share/
+Architecture.docx
+ARCHITECTURE.md
+make_doc.py
+

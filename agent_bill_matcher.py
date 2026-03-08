@@ -2,8 +2,9 @@ import anthropic
 from dotenv import load_dotenv
 import os
 import database as db
+import tracer
 
-load_dotenv()
+load_dotenv(override=True)
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 GET_BILLS_TOOL = {
@@ -36,7 +37,7 @@ RECORD_MATCH_TOOL = {
     }
 }
 
-def match_bill(company_name):
+def match_bill(company_name, pipeline_run_id: str = "manual"):
     messages = [
         {
             "role": "user",
@@ -58,12 +59,18 @@ First call get_bills to see the bill list, then call record_match with your answ
         }
     ]
 
-
     bills_df = None
+    turn = 0
 
     # Multi-turn loop — keep going until Claude stops calling tools
     while True:
-        response = client.messages.create(
+        turn += 1
+        response, trace = tracer.trace_call(
+            client,
+            pipeline_run_id=pipeline_run_id,
+            agent_name="bill_matcher",
+            turn=turn,
+            input_summary=f"company={company_name} turn={turn}",
             model="claude-haiku-4-5",
             max_tokens=256,
             tools=[GET_BILLS_TOOL, RECORD_MATCH_TOOL],
@@ -78,6 +85,8 @@ First call get_bills to see the bill list, then call record_match with your answ
 
         if not tool_calls:
             # Claude stopped calling tools without a match
+            trace.result = "no_match (no tool calls)"
+            tracer.save_trace_result(trace)
             return None, "LOW"
 
         tool_results = []
@@ -97,6 +106,8 @@ First call get_bills to see the bill list, then call record_match with your answ
             elif tool_call.name == "record_match":
                 final_match = tool_call.input.get("bill_name")
                 final_confidence = tool_call.input.get("confidence")
+                trace.result = f"matched={final_match} confidence={final_confidence}"
+                tracer.save_trace_result(trace)
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": tool_call.id,

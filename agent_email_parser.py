@@ -1,8 +1,9 @@
 import anthropic
 from dotenv import load_dotenv
 import os
+import tracer
 
-load_dotenv()
+load_dotenv(override=True)
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 TOOL = {
@@ -28,8 +29,12 @@ TOOL = {
     }
 }
 
-def parse_email(email_text):
-    message = client.messages.create(
+def parse_email(email_text, pipeline_run_id: str = "manual"):
+    message, trace = tracer.trace_call(
+        client,
+        pipeline_run_id=pipeline_run_id,
+        agent_name="email_parser",
+        input_summary=email_text[:120].replace("\n", " "),
         model="claude-haiku-4-5",
         max_tokens=256,
         tools=[TOOL],
@@ -56,13 +61,16 @@ Email:
 
     for block in message.content:
         if block.type == "tool_use":
-            return block.input
+            result = block.input
+            trace.result = f"is_payment={result.get('is_payment_confirmation')} company={result.get('company')} amount={result.get('amount')}"
+            tracer.save_trace_result(trace)
+            return result
 
     return {"is_payment_confirmation": False}
 
 
-def extract_bill_info(email_text):
-    result = parse_email(email_text)
+def extract_bill_info(email_text, pipeline_run_id: str = "manual"):
+    result = parse_email(email_text, pipeline_run_id=pipeline_run_id)
 
     if not result.get("is_payment_confirmation"):
         return None, None

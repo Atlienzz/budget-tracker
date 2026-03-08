@@ -1,4 +1,5 @@
 import sqlite3
+import json
 import pandas as pd
 from datetime import datetime
 
@@ -77,6 +78,26 @@ def init_db():
             CREATE TABLE IF NOT EXISTS processed_emails (
                 email_id TEXT PRIMARY KEY,
                 processed_at TEXT NOT NULL
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS agent_traces (
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                pipeline_run_id    TEXT    NOT NULL,
+                agent_name         TEXT    NOT NULL,
+                model              TEXT    NOT NULL,
+                turn               INTEGER DEFAULT 1,
+                input_tokens       INTEGER DEFAULT 0,
+                output_tokens      INTEGER DEFAULT 0,
+                cache_read_tokens  INTEGER DEFAULT 0,
+                cache_write_tokens INTEGER DEFAULT 0,
+                cost_usd           REAL    DEFAULT 0.0,
+                latency_ms         INTEGER DEFAULT 0,
+                tool_calls         TEXT    DEFAULT '[]',
+                input_summary      TEXT    DEFAULT '',
+                result             TEXT    DEFAULT '',
+                timestamp          TEXT    NOT NULL
             )
         """)
 
@@ -221,5 +242,73 @@ def mark_email_processed(email_id):
             (email_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
         )
         conn.commit()
-   
 
+
+# ── Agent Traces ────────────────────────────────────────────────────────────────
+
+def save_agent_trace(trace):
+    """Save an AgentTrace dataclass to the database."""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO agent_traces
+                (pipeline_run_id, agent_name, model, turn,
+                 input_tokens, output_tokens, cache_read_tokens, cache_write_tokens,
+                 cost_usd, latency_ms, tool_calls, input_summary, result, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                trace.pipeline_run_id,
+                trace.agent_name,
+                trace.model,
+                trace.turn,
+                trace.input_tokens,
+                trace.output_tokens,
+                trace.cache_read_tokens,
+                trace.cache_write_tokens,
+                trace.cost_usd,
+                trace.latency_ms,
+                json.dumps(trace.tool_calls),
+                trace.input_summary,
+                trace.result,
+                trace.timestamp,
+            ),
+        )
+        conn.commit()
+
+
+def get_traces_for_run(pipeline_run_id: str):
+    """Return all agent traces for a specific pipeline run."""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            "SELECT * FROM agent_traces WHERE pipeline_run_id=? ORDER BY id",
+            conn,
+            params=(pipeline_run_id,),
+        )
+
+
+def update_trace_result(trace):
+    """Update the result field on an already-saved trace row."""
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE agent_traces SET result=? WHERE pipeline_run_id=? AND agent_name=? AND turn=?",
+            (trace.result, trace.pipeline_run_id, trace.agent_name, trace.turn),
+        )
+        conn.commit()
+
+
+def get_recent_pipeline_run_ids(limit: int = 20):
+    """Return distinct pipeline_run_ids ordered by most recent first."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT pipeline_run_id, MIN(timestamp) as started_at, COUNT(*) as call_count,
+                   SUM(cost_usd) as total_cost, SUM(input_tokens + output_tokens) as total_tokens
+            FROM agent_traces
+            GROUP BY pipeline_run_id
+            ORDER BY started_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return rows

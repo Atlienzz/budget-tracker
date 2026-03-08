@@ -14,7 +14,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 st.title("💰 Ben & Heather's Bills")
 
-page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments", "📧 Run Pipeline", "📋 Pipeline Log", "🤖 Monthly Insights"])
+page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments", "📧 Run Pipeline", "📋 Pipeline Log", "🤖 Monthly Insights", "🔍 Agent Traces"])
 
 if page == "Dashboard":
     MONTH_NAMES = ["January","February","March","April","May","June",
@@ -269,4 +269,96 @@ elif page == "🤖 Monthly Insights":
     if st.button("Generate Insights"):
         from agent_insight import generate_monthly_insight
         st.write_stream(generate_monthly_insight(int(month), int(year)))
+
+elif page == "🔍 Agent Traces":
+    import json
+    st.header("🔍 Agent Traces")
+    st.caption("Every AI API call logged — tokens, cost, latency, tool calls. One row per agent turn.")
+
+    runs = db.get_recent_pipeline_run_ids(limit=20)
+
+    if not runs:
+        st.info("No traces yet. Run the pipeline first and traces will appear here.")
+    else:
+        # Build labels for the selectbox
+        run_labels = [
+            f"{row[1][:19]}  |  {row[2]} calls  |  ${row[3]*100:.4f}¢  |  {row[4]:,} tokens  |  {row[0][:8]}..."
+            for row in runs
+        ]
+        selected_label = st.selectbox("Select a pipeline run", run_labels)
+        selected_idx   = run_labels.index(selected_label)
+        selected_run   = runs[selected_idx]
+        run_id         = selected_run[0]
+
+        # ── Run summary metrics ──────────────────────────────────────────
+        st.divider()
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("API Calls",     selected_run[2])
+        col2.metric("Total Cost",    f"${selected_run[3]*100:.5f}¢" if selected_run[3] < 0.01 else f"${selected_run[3]:.4f}")
+        col3.metric("Total Tokens",  f"{selected_run[4]:,}")
+        col4.metric("Started",       selected_run[1][:19] if selected_run[1] else "—")
+
+        # ── Per-agent breakdown ──────────────────────────────────────────
+        traces = db.get_traces_for_run(run_id)
+
+        if traces.empty:
+            st.info("No traces found for this run.")
+        else:
+            st.subheader("Per-Call Breakdown")
+
+            # Format for display
+            display = traces[[
+                "agent_name", "turn", "model", "input_tokens", "output_tokens",
+                "cache_read_tokens", "cost_usd", "latency_ms", "result"
+            ]].copy()
+
+            display["cost_usd"]    = display["cost_usd"].apply(lambda x: f"${x:.6f}")
+            display["latency_ms"]  = display["latency_ms"].apply(lambda x: f"{x:,}ms")
+            display["total_tokens"]= traces["input_tokens"] + traces["output_tokens"]
+            display = display.rename(columns={
+                "agent_name":        "Agent",
+                "turn":              "Turn",
+                "model":             "Model",
+                "input_tokens":      "In Tokens",
+                "output_tokens":     "Out Tokens",
+                "cache_read_tokens": "Cache Read",
+                "cost_usd":          "Cost",
+                "latency_ms":        "Latency",
+                "result":            "Result",
+            })
+            st.dataframe(display, use_container_width=True)
+
+            # ── Aggregate by agent ──────────────────────────────────────
+            st.subheader("Cost & Tokens by Agent")
+            agg = traces.groupby("agent_name").agg(
+                calls        = ("id", "count"),
+                total_in     = ("input_tokens", "sum"),
+                total_out    = ("output_tokens", "sum"),
+                cache_read   = ("cache_read_tokens", "sum"),
+                total_cost   = ("cost_usd", "sum"),
+                avg_latency  = ("latency_ms", "mean"),
+            ).reset_index()
+            agg["total_cost"]  = agg["total_cost"].apply(lambda x: f"${x:.6f}")
+            agg["avg_latency"] = agg["avg_latency"].apply(lambda x: f"{x:.0f}ms")
+            st.dataframe(agg, use_container_width=True)
+
+            # ── Tool calls detail ───────────────────────────────────────
+            st.subheader("Tool Calls Made")
+            has_tools = False
+            for _, row in traces.iterrows():
+                try:
+                    calls = json.loads(row["tool_calls"]) if isinstance(row["tool_calls"], str) else row["tool_calls"]
+                except Exception:
+                    calls = []
+                if calls:
+                    has_tools = True
+                    for c in calls:
+                        st.code(
+                            f"Agent: {row['agent_name']}  |  Turn {row['turn']}\n"
+                            f"Tool:  {c.get('name')}\n"
+                            f"Input: {json.dumps(c.get('input', {}), indent=2)}",
+                            language="yaml"
+                        )
+            if not has_tools:
+                st.info("No tool calls recorded for this run.")
 

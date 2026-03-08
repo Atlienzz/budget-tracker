@@ -1,13 +1,14 @@
 import gmail_poller
 import os
+import uuid
 import database as db
 from agent_email_parser import extract_bill_info
 from agent_bill_matcher import match_bill
 from agent_payment_recorder import record_payment
 
-def process_bill_email(email_text, email_date=None):
+def process_bill_email(email_text, email_date=None, pipeline_run_id: str = "manual"):
     print("📧 Step 1: Parsing email...")
-    company, amount = extract_bill_info(email_text)
+    company, amount = extract_bill_info(email_text, pipeline_run_id=pipeline_run_id)
     if company is None:
         print("   ⚠️ Not a bill email — skipping")
         return
@@ -16,7 +17,7 @@ def process_bill_email(email_text, email_date=None):
     else:
         print(f"   Found: {company} — ${amount:.2f}")
     print("🔍 Step 2: Matching to bill...")
-    matched_bill, confidence = match_bill(company)
+    matched_bill, confidence = match_bill(company, pipeline_run_id=pipeline_run_id)
     if matched_bill is None:
         print("   ⚠️ Could not match to any bill — skipping")
         return
@@ -31,11 +32,13 @@ def process_bill_email(email_text, email_date=None):
     record_payment(matched_bill, amount, email_date=email_date)
     print("✅ Pipeline complete!")
 
-import os
-
 def run_gmail_pipeline(token_files=None):
     if token_files is None:
         token_files = ['token.json', 'token2.json']
+
+    # Unique ID that links all agent traces for this pipeline run
+    pipeline_run_id = str(uuid.uuid4())
+    print(f"🔎 Pipeline run ID: {pipeline_run_id}")
 
     all_emails = []
     for token_file in token_files:
@@ -86,7 +89,7 @@ def run_gmail_pipeline(token_files=None):
             continue
         print(f"📧 Processing: {email['subject']}")
         email_text = f"Subject: {email['subject']}\n\n{email['body']}"
-        process_bill_email(email_text, email_date=email['date'])
+        process_bill_email(email_text, email_date=email['date'], pipeline_run_id=pipeline_run_id)
         db.mark_email_processed(email['id'])
         print()
 
