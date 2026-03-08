@@ -52,10 +52,10 @@ Payment history this year:
 
 Write a conversational summary of this month's bill situation with 3-4 short paragraphs separated by blank lines. Each paragraph should cover one topic: overall status, concerns, positives, and priority action items. Be direct and specific, not generic. Do not use any markdown formatting, bold, italics, or special characters — plain text only."""
 
-    message = client.messages.create(
+    with client.messages.stream(
         model="claude-haiku-4-5",
         max_tokens=512,
         messages=[{"role": "user", "content": prompt}]
-    )
-
-    return message.content[0].text
+    ) as stream:
+        for text in stream.text_stream:
+            yield text

@@ -268,6 +268,5 @@ elif page == "🤖 Monthly Insights":
 
     if st.button("Generate Insights"):
         from agent_insight import generate_monthly_insight
-        with st.spinner("Analyzing your bills..."):
-            insight = generate_monthly_insight(int(month), int(year))
-        st.markdown(insight)
+        st.write_stream(generate_monthly_insight(int(month), int(year)))
+
