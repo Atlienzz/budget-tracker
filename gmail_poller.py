@@ -17,15 +17,22 @@ def get_gmail_service(credentials_file='credentials.json', token_file='token.jso
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(credentials_file, SCOPES)
-            creds = flow.run_local_server(port=0)
+            raise RuntimeError(
+                f"Token '{token_file}' is expired or missing and needs re-authorization. "
+                f"Run gmail_poller.py manually once to re-authenticate."
+            )
 
         with open(token_file, 'w') as token:
             token.write(creds.to_json())
 
+
     return build('gmail', 'v1', credentials=creds)
 
-def get_bill_emails(service, query='subject:bill OR subject:payment OR subject:invoice OR subject:due', max_results=10):
+def get_bill_emails(service, query='subject:bill OR subject:payment OR subject:invoice OR subject:due', max_results=50, after_date=None):
+    if after_date:
+        date_str = after_date.strftime('%Y/%m/%d')
+        query = f"{query} after:{date_str}"
+
     results = service.users().messages().list(
         userId='me',
         q=query,

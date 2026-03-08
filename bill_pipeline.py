@@ -22,7 +22,7 @@ def process_bill_email(email_text, email_date=None):
         return
     print(f"   Matched: {matched_bill['name']} (Confidence: {confidence})")
     if confidence == "LOW":
-        print("⚠️  Low confidence match — skipping. Manual review needed.")
+        print(f"⚠️  Low confidence: '{company}' → '{matched_bill['name']}' — skipping.")
         return
     if amount is None:
         amount = matched_bill['amount']
@@ -45,7 +45,8 @@ def run_gmail_pipeline(token_files=None):
         print(f"📬 Connecting to Gmail ({token_file})...")
         try:
             service = gmail_poller.get_gmail_service(token_file=token_file)
-            emails = gmail_poller.get_bill_emails(service)
+            last_run = db.get_last_pipeline_run_date()
+            emails = gmail_poller.get_bill_emails(service, after_date=last_run)
             print(f"   Found {len(emails)} emails")
             all_emails.extend(emails)
         except Exception as e:

@@ -198,6 +198,15 @@ def get_pipeline_logs(limit=10):
             conn, params=(limit,)
         )
 
+def get_last_pipeline_run_date():
+    with get_connection() as conn:
+        result = conn.execute(
+            "SELECT run_timestamp FROM pipeline_logs ORDER BY run_timestamp DESC LIMIT 1"
+        ).fetchone()
+    if result:
+        return datetime.strptime(result[0], "%Y-%m-%d %H:%M:%S")
+    return None
+
 def is_email_processed(email_id):
     with get_connection() as conn:
         result = conn.execute(

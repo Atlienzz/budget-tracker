@@ -7,3 +7,7 @@ test_claude.py
 credentials.json
 token.json
 token2.json
+Lib/
+Scripts/
+etc/
+share/
