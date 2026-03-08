@@ -12,11 +12,16 @@ def parse_email(email_text):
         messages=[
             {
                 "role": "user",
-                "content": f"""You are a bill payment assistant. Extract the company name and amount due from this email.
-                
-Reply in this exact format and nothing else:
+                "content": f"""You are a bill payment assistant. Extract the company name and payment amount from this email. This could be a bill statement, payment reminder, or payment confirmation (e.g. "your payment has been processed").
+
+If this email is related to a bill, subscription, loan, utility, insurance, or any recurring payment — extract the company and amount. The amount may be labeled as "amount due", "payment amount", "amount paid", "payment processed", or similar.
+
+If this email has nothing to do with bills or payments, reply with:
+NOT_A_BILL
+
+Otherwise reply in this exact format and nothing else:
 COMPANY: <company name>
-AMOUNT: <amount as a number only, no $ sign>
+AMOUNT: <amount as a number only, no $ sign, or UNKNOWN if no amount found>
 
 Email:
 {email_text}"""
