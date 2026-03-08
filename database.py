@@ -57,6 +57,17 @@ def init_db():
                 UNIQUE(category, month, year)
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS pipeline_logs (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_timestamp  TEXT NOT NULL,
+                total_emails   INTEGER,
+                recorded_count INTEGER,
+                skipped_count  INTEGER,
+                log_text       TEXT
+            )
+        """)
+
         conn.commit()
 
 
@@ -156,4 +167,19 @@ def get_budgets_df(month, year):
             "SELECT * FROM budgets WHERE month=? AND year=?",
             conn,
             params=(month, year),
+        )
+    
+def save_pipeline_log(total_emails, recorded_count, skipped_count, log_text):
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO pipeline_logs (run_timestamp, total_emails, recorded_count, skipped_count, log_text) VALUES (?, ?, ?, ?, ?)",
+            (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), total_emails, recorded_count, skipped_count, log_text),
+        )
+        conn.commit()
+
+def get_pipeline_logs(limit=10):
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            "SELECT * FROM pipeline_logs ORDER BY run_timestamp DESC LIMIT ?",
+            conn, params=(limit,)
         )

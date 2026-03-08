@@ -29,6 +29,8 @@ def extract_bill_info(email_text):
     result = parse_email(email_text)
     lines = result.strip().split("\n")
     try:
+        if not lines[0].startswith("COMPANY:"):    # ← add this check
+            return None, None
         company = lines[0].replace("COMPANY: ", "").strip()
         if not company:
             return None, None
@@ -39,6 +41,7 @@ def extract_bill_info(email_text):
         return company, amount
     except (IndexError):
         return None, None
+
 
 
 

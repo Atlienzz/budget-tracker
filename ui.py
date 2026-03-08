@@ -14,7 +14,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 st.title("💰 Ben & Heather's Bills")
 
-page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments", "📧 Run Pipeline"])
+page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments", "📧 Run Pipeline", "📋 Pipeline Log"])
 
 if page == "Dashboard":
     MONTH_NAMES = ["January","February","March","April","May","June",
@@ -238,4 +238,24 @@ elif page == "📧 Run Pipeline":
                 sys.stdout = sys.__stdout__
 
         output = output_capture.getvalue()
+
+        total    = output.count("📧 Processing:")
+        recorded = output.count("marked as paid")
+        skipped  = output.count("skipping") + output.count("already paid")
+        db.save_pipeline_log(total, recorded, skipped, output)
+
         st.text(output)
+        st.success(f"Done! {recorded} payments recorded, {skipped} skipped out of {total} emails.")
+
+elif page == "📋 Pipeline Log":
+    st.header("📋 Pipeline Run History")
+
+    logs = db.get_pipeline_logs(limit=20)
+
+    if logs.empty:
+        st.info("No pipeline runs yet.")
+    else:
+        for _, row in logs.iterrows():
+            with st.expander(f"🕐 {row['run_timestamp']} — {row['recorded_count']} recorded, {row['skipped_count']} skipped"):
+                st.text(row['log_text'])
+
