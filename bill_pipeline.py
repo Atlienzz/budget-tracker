@@ -2,6 +2,7 @@ import gmail_poller
 import os
 import uuid
 import database as db
+import rag_memory
 from agent_email_parser import extract_bill_info
 from agent_bill_matcher import match_bill
 from agent_payment_recorder import record_payment
@@ -40,7 +41,10 @@ def process_bill_email(email_text, email_date=None, pipeline_run_id: str = "manu
         amount = matched_bill['amount']
         print(f"   No amount found — using stored bill amount: ${amount:.2f}")
     print("💾 Step 3: Recording payment...")
-    record_payment(matched_bill, amount, email_date=email_date)
+    recorded = record_payment(matched_bill, amount, email_date=email_date)
+    if recorded:
+        rag_memory.add_payment_memory(company, matched_bill['name'], confidence, amount)
+        print("🧠 RAG memory updated.")
     print("✅ Pipeline complete!")
 
 def run_gmail_pipeline(token_files=None):

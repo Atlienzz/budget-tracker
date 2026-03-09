@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 import database as db
 import tracer
+import rag_memory
 
 load_dotenv(override=True)
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -43,6 +44,17 @@ def match_bill(company_name, pipeline_run_id: str = "manual", amount: float = No
     # disambiguate between bills from the same provider (e.g. Verizon phone vs Verizon Visa).
     amount_hint = f"\nPayment amount from email: ${amount:.2f}" if amount is not None else ""
 
+    # Retrieve similar past matches from RAG memory
+    similar = rag_memory.get_similar_matches(company_name, k=3)
+    if similar:
+        lines = [
+            f'  - "{m["company"]}" → "{m["bill_name"]}" ({m["confidence"]} confidence)'
+            for m in similar
+        ]
+        rag_context = "\n\nPast payment memory (similar companies you have matched before — use this as a strong hint):\n" + "\n".join(lines)
+    else:
+        rag_context = ""
+
     messages = [
         {
             "role": "user",
@@ -62,7 +74,7 @@ First call get_bills to see the bill list, then call record_match with your answ
                 },
                 {
                     "type": "text",
-                    "text": f"Company to match: {company_name}{amount_hint}"
+                    "text": f"Company to match: {company_name}{amount_hint}{rag_context}"
                 }
             ]
         }

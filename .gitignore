@@ -13,7 +13,9 @@ Lib/
 Scripts/
 etc/
 share/
+venv/
+chroma_db/
+fix_bill_name.py
 Architecture.docx
 ARCHITECTURE.md
 make_doc.py
-

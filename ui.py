@@ -19,7 +19,7 @@ st.title("💰 Ben & Heather's Bills")
 pending_count = db.get_pending_review_count()
 review_label  = f"👀 Review Queue ({pending_count})" if pending_count > 0 else "👀 Review Queue"
 
-page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments", "📧 Run Pipeline", "📋 Pipeline Log", "🤖 Monthly Insights", "🔍 Observability", review_label, "🧪 Eval"])
+page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments", "📧 Run Pipeline", "📋 Pipeline Log", "🤖 Monthly Insights", "🔍 Observability", review_label, "🧪 Eval", "🧠 RAG Memory"])
 
 if page == "Dashboard":
     MONTH_NAMES = ["January","February","March","April","May","June",
@@ -694,3 +694,67 @@ elif page == "🧪 Eval":
                         "E2E":               "✅" if r["end_to_end_correct"] else "❌",
                     })
                 st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+elif page == "🧠 RAG Memory":
+    import rag_memory
+
+    st.header("🧠 RAG Memory")
+    st.caption(
+        "The bill matcher uses this vector memory to recall similar past payment matches. "
+        "When a new company arrives, RAG retrieves the closest historical matches and injects "
+        "them into the prompt — so the AI isn't reasoning from scratch every time."
+    )
+
+    count = rag_memory.get_memory_count()
+    st.metric("Stored memories", count)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("Seed from payment history", type="primary",
+                     help="Pre-populate RAG memory from all past successful matches in agent_traces"):
+            with st.spinner("Seeding from historical data..."):
+                seeded = rag_memory.seed_from_traces()
+            st.success(f"Seeded {seeded} memories from past pipeline runs.")
+            st.rerun()
+
+    with col2:
+        if st.button("Clear all memory", type="secondary",
+                     help="Delete all stored memories and start fresh"):
+            rag_memory.clear_memory()
+            st.success("Memory cleared.")
+            st.rerun()
+
+    st.divider()
+
+    # Test the retrieval so you can see it working
+    st.subheader("Test retrieval")
+    test_company = st.text_input("Company name", placeholder="e.g. QuickTrip Fuel Station")
+    if test_company:
+        matches = rag_memory.get_similar_matches(test_company, k=5)
+        if matches:
+            st.write(f"**Top matches for '{test_company}':**")
+            for m in matches:
+                st.write(f"- \"{m['company']}\" → **{m['bill_name']}** ({m['confidence']}) — distance: {m['distance']}")
+        else:
+            st.info("No similar matches found in memory.")
+
+    st.divider()
+
+    # Show all stored memories
+    st.subheader("All stored memories")
+    memories = rag_memory.get_all_memories()
+    if memories:
+        rows = [
+            {
+                "Company (from email)": m["company"],
+                "Matched Bill":        m["bill_name"],
+                "Confidence":          m["confidence"],
+                "Amount":              f"${m['amount']}" if m["amount"] else "—",
+                "Recorded":            m["recorded_at"],
+            }
+            for m in memories
+        ]
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    else:
+        st.info("No memories stored yet. Run the pipeline or click 'Seed from payment history'.")
