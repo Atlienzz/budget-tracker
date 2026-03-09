@@ -262,8 +262,20 @@ elif page == "📋 Pipeline Log":
         st.info("No pipeline runs yet.")
     else:
         for _, row in logs.iterrows():
-            with st.expander(f"🕐 {row['run_timestamp']} — {row['recorded_count']} recorded, {row['skipped_count']} skipped  |  {row.get('source', 'manual')}"):
-                st.text(row['log_text'])
+            log_text = row['log_text'] or ""
+            standard_count = log_text.count("Route: standard")
+            dispute_count  = log_text.count("Route: dispute")
+            review_count   = log_text.count("Route: force_review")
+            skip_count     = log_text.count("Route: skip")
+            has_orchestrator = standard_count + dispute_count + review_count + skip_count > 0
+
+            if has_orchestrator:
+                route_summary = f"  |  🧭 {standard_count} standard, {skip_count} skip, {review_count} review, {dispute_count} dispute"
+            else:
+                route_summary = ""
+
+            with st.expander(f"🕐 {row['run_timestamp']} — {row['recorded_count']} recorded, {row['skipped_count']} skipped  |  {row.get('source', 'manual')}{route_summary}"):
+                st.text(log_text)
 
 elif page == "🤖 Monthly Insights":
     st.header("🤖 Monthly Insights")

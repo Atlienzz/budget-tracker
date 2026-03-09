@@ -3,6 +3,7 @@ import os
 import uuid
 import database as db
 import rag_memory
+import agent_orchestrator as orchestrator
 from agent_email_parser import extract_bill_info
 from agent_bill_matcher import match_bill
 from agent_payment_recorder import record_payment
@@ -72,37 +73,48 @@ def run_gmail_pipeline(token_files=None):
 
     print(f"\n📊 Total: {len(all_emails)} emails to process\n")
 
-    SKIP_KEYWORDS = [
-    # Marketing / retail
-    'unsubscribe', 'sale', 'deal', 'offer', 'coupon', 'promo', 'discount',
-    'newsletter', 'limited time', 'exclusive', 'flash sale', '%  off',
-    # Shopping / orders
-    'order confirmation', 'order shipped', 'order delivered', 'order update',
-    'shipping', 'tracking', 'delivered', 'out for delivery', 'your package',
-    # Account / auth (non-billing)
-    'verify', 'verification', 'welcome', 'confirm your', 'reset your password',
-    'sign in', 'login attempt', 'new device',
-    # Surveys / misc
-    'survey', 'feedback', 'how did we do', 'rate your', 'unsubscribe',
-    'you\'ve been selected', 'congratulations',
-    # Payment reminders & non-confirmation bill emails
-    'upcoming', 'due alert', 'minimum payment due', 'statement is ready',
-    'bill statement', 'peak hours', 'bill period', 'you spent',
-    'last day to make changes', 'scheduled for',
-
-]
-
     for email in all_emails:
-        subject_lower = email['subject'].lower()
-        if any(kw in subject_lower for kw in SKIP_KEYWORDS):
-            print(f"⏭️ Skipping (subject filter): {email['subject']}")
-            print()
-            continue
         if db.is_email_processed(email['id']):
             print(f"⏭️ Already processed: {email['subject']}")
             print()
             continue
-        print(f"📧 Processing: {email['subject']}")
+
+        # Orchestrator decides the route before any downstream agents run
+        route, reason = orchestrator.route_email(
+            subject=email['subject'],
+            body_preview=email['body'][:500],
+            pipeline_run_id=pipeline_run_id,
+        )
+        print(f"📧 {email['subject']}")
+        print(f"🧭 Route: {route} — {reason}")
+
+        if route == "skip":
+            db.mark_email_processed(email['id'])
+            print()
+            continue
+
+        elif route == "dispute":
+            print(f"⚠️  DISPUTE flagged — review manually")
+            db.mark_email_processed(email['id'])
+            print()
+            continue
+
+        elif route == "force_review":
+            db.add_to_review_queue(
+                email_subject=email['subject'],
+                company_name=reason,
+                suggested_bill_id=None,
+                suggested_bill_name="",
+                amount=None,
+                email_date=email['date'],
+                pipeline_run_id=pipeline_run_id,
+            )
+            print(f"⏸️  Routed to review queue")
+            db.mark_email_processed(email['id'])
+            print()
+            continue
+
+        # route == "standard" — run the full pipeline
         email_text = f"Subject: {email['subject']}\n\n{email['body']}"
         process_bill_email(email_text, email_date=email['date'],
                            pipeline_run_id=pipeline_run_id,
