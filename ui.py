@@ -19,7 +19,7 @@ st.title("💰 Ben & Heather's Bills")
 pending_count = db.get_pending_review_count()
 review_label  = f"👀 Review Queue ({pending_count})" if pending_count > 0 else "👀 Review Queue"
 
-page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments", "📧 Run Pipeline", "📋 Pipeline Log", "🤖 Monthly Insights", "🔍 Observability", review_label])
+page = st.sidebar.radio("Menu", ["Dashboard", "View Bills", "Add a Bill", "Edit / Delete Bills", "Mark Paid", "Unmark Paid", "View Payments", "📧 Run Pipeline", "📋 Pipeline Log", "🤖 Monthly Insights", "🔍 Observability", review_label, "🧪 Eval"])
 
 if page == "Dashboard":
     MONTH_NAMES = ["January","February","March","April","May","June",
@@ -557,3 +557,140 @@ elif page == "🔍 Observability":
                 if not has_tools:
                     st.info("No tool calls recorded for this run.")
 
+elif page == "🧪 Eval":
+    st.header("🧪 Agent Eval Suite")
+    st.caption(
+        "Measure how accurately the email parser and bill matcher perform "
+        "on a labeled set of 30 test cases — 12 clear payment confirmations, "
+        "10 non-payments, and 8 edge cases."
+    )
+
+    tab_run, tab_history = st.tabs(["▶ Run Eval", "📋 History"])
+
+    # ── Tab 1: Run Eval ───────────────────────────────────────────────────────
+    with tab_run:
+        st.info(
+            "**30 test cases · 3 categories**\n"
+            "- 12 clear payment confirmations (should parse TRUE + match HIGH confidence)\n"
+            "- 10 non-payment emails (should parse FALSE)\n"
+            "- 8 edge cases (ambiguous company names, abbreviations, generic language)"
+        )
+
+        if st.button("▶ Run Eval Suite", type="primary"):
+            from eval_runner import run_eval_suite
+
+            progress_bar = st.progress(0.0)
+            status_text  = st.empty()
+
+            def _ui_progress(i, total, case_id):
+                if total > 0:
+                    progress_bar.progress(i / total)
+                if case_id != "done":
+                    status_text.text(f"Running {case_id}... ({i}/{total})")
+
+            with st.spinner("Running eval suite — this takes 1-2 minutes..."):
+                run_id, results, metrics = run_eval_suite(progress_callback=_ui_progress)
+
+            progress_bar.progress(1.0)
+            status_text.text(f"✅ Complete! Run ID: {run_id}")
+
+            st.session_state["eval_run_id"]  = run_id
+            st.session_state["eval_results"] = results
+            st.session_state["eval_metrics"] = metrics
+
+        # Display results from the most recent run (in this session)
+        if "eval_metrics" in st.session_state:
+            metrics = st.session_state["eval_metrics"]
+            results = st.session_state["eval_results"]
+
+            st.divider()
+            st.subheader("Results")
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Parser Accuracy",   f"{metrics['parser_accuracy']:.1%}",
+                      help="% of emails correctly classified as payment or non-payment")
+            c2.metric("Matcher Accuracy",  f"{metrics['matcher_accuracy']:.1%}",
+                      help="% of payment emails matched to the correct bill")
+            c3.metric("Avg Judge Score",   f"{metrics['avg_judge_score']:.2f}/3",
+                      help="LLM-as-judge score for company name extraction quality (0-3)")
+            c4.metric("End-to-End",        f"{metrics['end_to_end_accuracy']:.1%}",
+                      help="% of emails where full pipeline produced correct outcome")
+
+            c1, c2 = st.columns(2)
+            c1.metric("True Positive Rate", f"{metrics['true_positive_rate']:.1%}",
+                      help="% of actual payments correctly identified by the parser")
+            c2.metric("True Negative Rate", f"{metrics['true_negative_rate']:.1%}",
+                      help="% of non-payment emails correctly filtered out")
+
+            # Confidence calibration
+            conf = metrics.get("confidence_breakdown", {})
+            has_conf_data = any(v is not None for v in conf.values())
+            if has_conf_data:
+                st.subheader("Confidence Calibration")
+                st.caption(
+                    "Are HIGH-confidence matches actually more accurate than LOW ones? "
+                    "Good calibration means HIGH > MEDIUM > LOW."
+                )
+                conf_rows = [
+                    {"Confidence": k, "Matcher Accuracy": f"{v:.1%}" if v is not None else "—"}
+                    for k, v in conf.items()
+                ]
+                st.dataframe(pd.DataFrame(conf_rows), use_container_width=True, hide_index=True)
+
+            # Per-case results table
+            st.subheader("Per-Case Results")
+            rows = []
+            for r in results:
+                rows.append({
+                    "Case":              r["case_id"],
+                    "Category":          r["category"],
+                    "Parser":            "✅" if r["parser_correct"] else "❌",
+                    "Company Extracted": r["actual_company"] or "—",
+                    "Judge Score":       f"{r['company_judge_score']}/3" if r["company_judge_score"] is not None else "—",
+                    "Bill Matched":      r["actual_bill_name"] or "—",
+                    "Matcher":           "✅" if r["matcher_correct"] else ("❌" if r["matcher_correct"] is False else "—"),
+                    "Confidence":        r["actual_confidence"] or "—",
+                    "E2E":               "✅" if r["end_to_end_correct"] else "❌",
+                })
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+    # ── Tab 2: History ────────────────────────────────────────────────────────
+    with tab_history:
+        eval_runs = db.get_eval_runs()
+
+        if eval_runs.empty:
+            st.info("No eval runs yet. Click '▶ Run Eval Suite' to get started.")
+        else:
+            run_labels = [
+                f"{row['run_timestamp']}  |  Parser: {row['parser_accuracy']:.1%}  "
+                f"|  Matcher: {row['matcher_accuracy']:.1%}  |  E2E: {row['end_to_end_accuracy']:.1%}  "
+                f"|  ID: {row['run_id']}"
+                for _, row in eval_runs.iterrows()
+            ]
+            selected_label = st.selectbox("Select a run", run_labels)
+            selected_idx   = run_labels.index(selected_label)
+            selected_run   = eval_runs.iloc[selected_idx]
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Parser Accuracy",  f"{selected_run['parser_accuracy']:.1%}")
+            c2.metric("Matcher Accuracy", f"{selected_run['matcher_accuracy']:.1%}")
+            c3.metric("Avg Judge Score",  f"{selected_run['avg_judge_score']:.2f}/3")
+            c4.metric("End-to-End",       f"{selected_run['end_to_end_accuracy']:.1%}")
+
+            case_results = db.get_eval_case_results(selected_run["run_id"])
+            if not case_results.empty:
+                st.subheader("Per-Case Results")
+                rows = []
+                for _, r in case_results.iterrows():
+                    rows.append({
+                        "Case":              r["case_id"],
+                        "Category":          r["category"],
+                        "Parser":            "✅" if r["parser_correct"] else "❌",
+                        "Company Extracted": r["actual_company"] or "—",
+                        "Judge Score":       f"{int(r['company_judge_score'])}/3" if pd.notna(r["company_judge_score"]) else "—",
+                        "Bill Matched":      r["actual_bill_name"] or "—",
+                        "Matcher":           "✅" if r["matcher_correct"] else ("❌" if r["matcher_correct"] == 0 else "—"),
+                        "Confidence":        r["actual_confidence"] or "—",
+                        "E2E":               "✅" if r["end_to_end_correct"] else "❌",
+                    })
+                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)

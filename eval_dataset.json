@@ -1,0 +1,392 @@
+[
+  {
+    "case_id": "confirm_001",
+    "category": "clear_confirmation",
+    "subject": "AEP Ohio - Payment Confirmation",
+    "body": "Dear Customer, thank you for your payment. Your payment of $144.00 has been successfully received for your AEP Ohio electric service account ending in 4821. Payment Date: March 1, 2026. Reference Number: APY-2026-03-84621. No further action is needed. Your next bill will reflect this payment. Thank you for being an AEP Ohio customer.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "AEP Ohio",
+      "amount": 144.00,
+      "bill_name": "Electric (Auto Pay)",
+      "confidence": "HIGH"
+    }
+  },
+  {
+    "case_id": "confirm_002",
+    "category": "clear_confirmation",
+    "subject": "Wells Fargo Active Cash - AutoPay Processed",
+    "body": "Your Wells Fargo Active Cash Card AutoPay has been processed. Payment amount: $238.47. Account ending: 7842. Payment date: March 2, 2026. Your payment has been deducted from your bank account on file. This payment will post to your credit card account within 1-2 business days. No action is needed.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "Wells Fargo",
+      "amount": 238.47,
+      "bill_name": "Wells Fargo Active Cash",
+      "confidence": "HIGH"
+    }
+  },
+  {
+    "case_id": "confirm_003",
+    "category": "clear_confirmation",
+    "subject": "GEICO - Payment Confirmation",
+    "body": "Hi Ben, your GEICO payment has been processed. Thank you for your auto insurance payment of $351.00. Your policy number: 047-83-21-04. Payment method: Checking account on file. Payment date: March 24, 2026. Your coverage remains active. You can view your policy details at geico.com. Thank you for being a GEICO customer.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "GEICO",
+      "amount": 351.00,
+      "bill_name": "Insurance (Auto Pay)",
+      "confidence": "HIGH"
+    }
+  },
+  {
+    "case_id": "confirm_004",
+    "category": "clear_confirmation",
+    "subject": "Your Hulu subscription payment was processed",
+    "body": "Hi there! Your monthly Hulu subscription payment of $17.99 has been successfully processed. Billing date: March 1, 2026. Plan: Hulu (With Ads). Payment method: Visa ending in 4521. Your next billing date is April 1, 2026. Enjoy streaming! Questions? Visit help.hulu.com.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "Hulu",
+      "amount": 17.99,
+      "bill_name": "Media/Streaming/Music",
+      "confidence": "HIGH"
+    }
+  },
+  {
+    "case_id": "confirm_005",
+    "category": "clear_confirmation",
+    "subject": "Xfinity - Your payment has been received",
+    "body": "Thank you, Ben. We've received your Xfinity payment. Payment amount: $151.00. Account number: 8771-042-3812. Payment confirmation: XFN20260317-482931. Payment posted: March 17, 2026. Your services will continue without interruption. Manage your account at xfinity.com.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "Xfinity",
+      "amount": 151.00,
+      "bill_name": "Cable (Auto Pay)",
+      "confidence": "HIGH"
+    }
+  },
+  {
+    "case_id": "confirm_006",
+    "category": "clear_confirmation",
+    "subject": "Chrysler Capital - Payment Received",
+    "body": "Dear Ben, thank you for your payment to Chrysler Capital. We have received your payment of $537.00 for your vehicle loan account ending in 2847. Payment date: March 19, 2026. Confirmation number: CCF-84721-2026. Your account is in good standing. View your account at chryslercapital.com.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "Chrysler Capital",
+      "amount": 537.00,
+      "bill_name": "Jeep Pmt",
+      "confidence": "HIGH"
+    }
+  },
+  {
+    "case_id": "confirm_007",
+    "category": "clear_confirmation",
+    "subject": "LendingClub - Your payment was processed",
+    "body": "Hello, your LendingClub loan payment of $415.00 has been successfully processed. Loan account: LC-4821-PERSONAL. Payment date: March 8, 2026. Confirmation: LCP-2026-03-84721. This payment will be applied to your principal and interest balance. Log in to view your updated loan balance at lendingclub.com.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "LendingClub",
+      "amount": 415.00,
+      "bill_name": "Lending Club (Auto Pay)",
+      "confidence": "HIGH"
+    }
+  },
+  {
+    "case_id": "confirm_008",
+    "category": "clear_confirmation",
+    "subject": "Verizon - Thank you for your payment",
+    "body": "Ben, thank you for your payment. Payment details: Amount paid: $330.00. Account: Verizon wireless account ending 8421. Confirmation number: VZW-20260325-94821. Payment date: March 25, 2026. Your AutoPay is set up and your next payment will be processed automatically. My Verizon app | verizon.com",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "Verizon",
+      "amount": 330.00,
+      "bill_name": "Verizon Phone (Auto Pay)",
+      "confidence": "HIGH"
+    }
+  },
+  {
+    "case_id": "confirm_009",
+    "category": "clear_confirmation",
+    "subject": "Kohl's Card - Payment Confirmation",
+    "body": "Hi Ben! Your Kohl's Credit Card payment has been received. Payment amount: $100.00. Account ending: 5821. Payment date: March 5, 2026. Confirmation #: KCC-20260305-49721. Your available credit has been updated. Thank you for your payment! Continue shopping at Kohls.com.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "Kohl's",
+      "amount": 100.00,
+      "bill_name": "Kohls",
+      "confidence": "HIGH"
+    }
+  },
+  {
+    "case_id": "confirm_010",
+    "category": "clear_confirmation",
+    "subject": "Best Buy Credit Card - Autopay Payment Processed",
+    "body": "Your Best Buy Credit Card autopay payment has been processed. Amount: $85.00. Account ending: 3821. Payment date: March 4, 2026. Reference: BBCC-2026-0304-72841. Your account balance has been updated. Thank you for your automatic payment. Manage your account at bestbuy.com.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "Best Buy",
+      "amount": 85.00,
+      "bill_name": "Best Buy (Auto Pay)",
+      "confidence": "HIGH"
+    }
+  },
+  {
+    "case_id": "confirm_011",
+    "category": "clear_confirmation",
+    "subject": "Capital One - Your AutoPay was processed",
+    "body": "Hi Ben, your Capital One Savor One Rewards Credit Card AutoPay has been processed. Here are the details: Payment amount: $152.43. Card ending in: 4821. Payment date: March 14, 2026. Your bank account ending in 8472 was debited. You can view your full payment history in the Capital One app.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "Capital One",
+      "amount": 152.43,
+      "bill_name": "Capital One Savor (Auto Pay)",
+      "confidence": "HIGH"
+    }
+  },
+  {
+    "case_id": "confirm_012",
+    "category": "clear_confirmation",
+    "subject": "Synchrony Bank - Payment Received for your Jewelry Account",
+    "body": "Dear Ben, a payment has been received on your Synchrony Bank jewelry account. Payment amount: $250.00. Account ending: 7421. Transaction date: March 15, 2026. Confirmation number: SYN-20260315-84712. Please allow 1-2 business days for your balance to update. Questions? Visit synchrony.com or call 1-866-226-5638.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "Synchrony Bank",
+      "amount": 250.00,
+      "bill_name": "Synchrony Jewelry",
+      "confidence": "MEDIUM"
+    }
+  },
+  {
+    "case_id": "nonpay_001",
+    "category": "non_payment",
+    "subject": "AEP Ohio - Your bill is ready",
+    "body": "Hello Ben, your AEP Ohio electric bill for March 2026 is now available. Amount due: $144.00. Due date: March 28, 2026. Log in to AEP Ohio online to pay or view your bill. AutoPay is a convenient way to pay automatically — enroll today. If you've already scheduled a payment, please disregard this notice.",
+    "expected": {
+      "is_payment_confirmation": false,
+      "company": null,
+      "amount": null,
+      "bill_name": null,
+      "confidence": null
+    }
+  },
+  {
+    "case_id": "nonpay_002",
+    "category": "non_payment",
+    "subject": "Wells Fargo - Payment Due Reminder",
+    "body": "Hi Ben, your Wells Fargo Active Cash Card payment is due soon. Minimum payment due: $35.00. Statement balance: $238.47. Payment due date: March 2, 2026. To avoid a late fee, make your payment at wellsfargo.com, through the mobile app, or call us. If you have AutoPay set up, your payment will be processed automatically.",
+    "expected": {
+      "is_payment_confirmation": false,
+      "company": null,
+      "amount": null,
+      "bill_name": null,
+      "confidence": null
+    }
+  },
+  {
+    "case_id": "nonpay_003",
+    "category": "non_payment",
+    "subject": "GEICO - Your Policy Renewal Notice",
+    "body": "Dear Ben, your GEICO auto insurance policy #047-83-21-04 is scheduled to renew on April 24, 2026. Your renewal premium is $351.00 per month. Your current payment method on file will be charged automatically. No action is needed if you wish to continue your coverage. Review your policy details at geico.com.",
+    "expected": {
+      "is_payment_confirmation": false,
+      "company": null,
+      "amount": null,
+      "bill_name": null,
+      "confidence": null
+    }
+  },
+  {
+    "case_id": "nonpay_004",
+    "category": "non_payment",
+    "subject": "Xfinity - Your AutoPay is Scheduled",
+    "body": "Hi Ben, just a heads up — your Xfinity AutoPay payment of $151.00 is scheduled to be processed on March 17, 2026 from your bank account ending in 8472. If you need to make changes, please do so at least 2 days before the scheduled date. No action is needed. Visit xfinity.com to manage your payment settings.",
+    "expected": {
+      "is_payment_confirmation": false,
+      "company": null,
+      "amount": null,
+      "bill_name": null,
+      "confidence": null
+    }
+  },
+  {
+    "case_id": "nonpay_005",
+    "category": "non_payment",
+    "subject": "Your Kohl's Credit Card Statement is Available",
+    "body": "Hi Ben, your Kohl's Credit Card statement for the period ending February 28, 2026 is now available. Statement balance: $100.00. Minimum payment due: $25.00. Payment due date: March 5, 2026. Log in to your account at kohls.com to view your statement, make a payment, or set up AutoPay.",
+    "expected": {
+      "is_payment_confirmation": false,
+      "company": null,
+      "amount": null,
+      "bill_name": null,
+      "confidence": null
+    }
+  },
+  {
+    "case_id": "nonpay_006",
+    "category": "non_payment",
+    "subject": "Big Sale This Weekend - Up to 50% Off at Best Buy",
+    "body": "Hi Ben, don't miss our biggest sale of the season! Save up to 50% on TVs, laptops, gaming, and more. This weekend only at BestBuy.com or in-store. Plus, Best Buy Credit Card holders get an extra 5% off. Shop now and save! Offer valid March 7-9, 2026 only.",
+    "expected": {
+      "is_payment_confirmation": false,
+      "company": null,
+      "amount": null,
+      "bill_name": null,
+      "confidence": null
+    }
+  },
+  {
+    "case_id": "nonpay_007",
+    "category": "non_payment",
+    "subject": "Capital One - Minimum Payment Due Soon",
+    "body": "Ben, a minimum payment of $25.00 is due on your Savor One Rewards Credit Card by March 14, 2026. Statement balance: $152.43. To avoid a late payment fee, make at least your minimum payment by the due date. Pay now at capitalone.com or through the Capital One app. You've already set up AutoPay — your payment will process automatically.",
+    "expected": {
+      "is_payment_confirmation": false,
+      "company": null,
+      "amount": null,
+      "bill_name": null,
+      "confidence": null
+    }
+  },
+  {
+    "case_id": "nonpay_008",
+    "category": "non_payment",
+    "subject": "Verizon Account Activity - New Charges Added",
+    "body": "Hi Ben, new charges have been added to your Verizon account. Here's a summary: Monthly plan: $280.00. International usage: $50.00. New total: $330.00. Your bill date is March 25, 2026. AutoPay will process your payment automatically on the due date. Review your charges at verizon.com/myverizon.",
+    "expected": {
+      "is_payment_confirmation": false,
+      "company": null,
+      "amount": null,
+      "bill_name": null,
+      "confidence": null
+    }
+  },
+  {
+    "case_id": "nonpay_009",
+    "category": "non_payment",
+    "subject": "Welcome to LendingClub!",
+    "body": "Hi Ben, welcome to LendingClub! Your loan application has been approved and funds of $5,000 have been deposited to your bank account. Your first payment of $415.00 is due on April 8, 2026. Set up AutoPay to never miss a payment — enroll at lendingclub.com/account. Congratulations!",
+    "expected": {
+      "is_payment_confirmation": false,
+      "company": null,
+      "amount": null,
+      "bill_name": null,
+      "confidence": null
+    }
+  },
+  {
+    "case_id": "nonpay_010",
+    "category": "non_payment",
+    "subject": "Xfinity - Data Usage Alert - 90% of Plan Used",
+    "body": "Hi Ben, your Xfinity internet data usage has reached 90% of your monthly plan (1,080 GB used of 1,200 GB). You have approximately 120 GB remaining for March 2026. Consider upgrading to an unlimited data plan to avoid overage charges. Current plan: Performance Pro ($151.00/month). Upgrade at xfinity.com or call 1-800-XFINITY.",
+    "expected": {
+      "is_payment_confirmation": false,
+      "company": null,
+      "amount": null,
+      "bill_name": null,
+      "confidence": null
+    }
+  },
+  {
+    "case_id": "edge_001",
+    "category": "edge_case",
+    "subject": "LC - Payment Processed",
+    "body": "Your LC account payment has been successfully processed. Payment amount: $236.00. Account ID: LC-4821-B. Transaction date: March 19, 2026. Confirmation code: LCP-94721. Your payment has been applied. Log in at lendingclub.com to view your updated balance.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "LC",
+      "amount": 236.00,
+      "bill_name": "Lending Club 2 (Auto Pay)",
+      "confidence": "MEDIUM"
+    }
+  },
+  {
+    "case_id": "edge_002",
+    "category": "edge_case",
+    "subject": "Chrysler Financial - Vehicle Loan Payment Received",
+    "body": "Dear Ben, Chrysler Financial has received your vehicle loan payment. Payment amount: $537.00. Account ending: 2847. Payment received: March 19, 2026. Confirmation: CF-84721-0319. Your account is current. Please retain this confirmation for your records. Thank you for your timely payment.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "Chrysler Financial",
+      "amount": 537.00,
+      "bill_name": "Jeep Pmt",
+      "confidence": "MEDIUM"
+    }
+  },
+  {
+    "case_id": "edge_003",
+    "category": "edge_case",
+    "subject": "Mortgage Payment Confirmation - March 2026",
+    "body": "Your mortgage payment of $777.28 has been received and applied to your account for the March 2026 installment. Loan number ending 4821. Payment date: March 1, 2026. Confirmation: MTG-20260301-84721. Thank you for your payment. If you have questions, contact your loan servicer.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "Mortgage Servicer",
+      "amount": 777.28,
+      "bill_name": "House",
+      "confidence": "LOW"
+    }
+  },
+  {
+    "case_id": "edge_004",
+    "category": "edge_case",
+    "subject": "Netflix - Your monthly payment was successful",
+    "body": "Hi Ben, your Netflix subscription payment was successful. Amount charged: $22.99. Plan: Standard with ads. Billing date: March 1, 2026. Payment method: Visa ending 4521. Your next billing date is April 1, 2026. If you did not authorize this charge, visit netflix.com/account. Enjoy watching!",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "Netflix",
+      "amount": 22.99,
+      "bill_name": "Media/Streaming/Music",
+      "confidence": "MEDIUM"
+    }
+  },
+  {
+    "case_id": "edge_005",
+    "category": "edge_case",
+    "subject": "Verizon Visa Signature - Payment Processed",
+    "body": "Your Verizon Visa Signature credit card payment has been processed. Payment amount: $127.43. Card account ending: 4821. Payment date: March 28, 2026. Thank you for your payment. Your available credit has been updated. To view your account, visit verizonvisa.com.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "Verizon Visa",
+      "amount": 127.43,
+      "bill_name": "Verizon Visa (Auto Pay)",
+      "confidence": "MEDIUM"
+    }
+  },
+  {
+    "case_id": "edge_006",
+    "category": "edge_case",
+    "subject": "Spotify - Receipt for your subscription",
+    "body": "Hi Ben, here's your receipt. Your Spotify Premium subscription has been renewed. We've charged $11.99 to your Visa card ending in 4521. Billing date: March 1, 2026. Plan: Spotify Premium Individual. This charge will appear as SPOTIFY on your statement. Thanks for being a Spotify Premium subscriber!",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "Spotify",
+      "amount": 11.99,
+      "bill_name": "Media/Streaming/Music",
+      "confidence": "MEDIUM"
+    }
+  },
+  {
+    "case_id": "edge_007",
+    "category": "edge_case",
+    "subject": "CubeSmart - Auto-Pay Processed",
+    "body": "Hi Ben, your CubeSmart Auto-Pay has been processed for your storage unit rental. Amount charged: $94.00. Unit: #148, CubeSmart location on file. Payment date: March 1, 2026. Confirmation: CSM-20260301-48291. Thank you for choosing CubeSmart. Access your account at cubesmart.com.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "CubeSmart",
+      "amount": 94.00,
+      "bill_name": "Storage (Auto Pay)",
+      "confidence": "MEDIUM"
+    }
+  },
+  {
+    "case_id": "edge_008",
+    "category": "edge_case",
+    "subject": "Insurance Payment - Processed",
+    "body": "Policy #047-83-21-04. Your payment of $351.00 was received on March 24, 2026. Thank you.",
+    "expected": {
+      "is_payment_confirmation": true,
+      "company": "Insurance Company",
+      "amount": 351.00,
+      "bill_name": "Insurance (Auto Pay)",
+      "confidence": "LOW"
+    }
+  }
+]

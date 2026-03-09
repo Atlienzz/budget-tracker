@@ -1,4 +1,5 @@
 import anthropic
+import re
 from dotenv import load_dotenv
 import os
 import database as db
@@ -25,7 +26,7 @@ RECORD_MATCH_TOOL = {
         "properties": {
             "bill_name": {
                 "type": "string",
-                "description": "Exact bill name from the list"
+                "description": "Exact bill name from the list — just the text before the '|' separator, do not include the dollar amount"
             },
             "confidence": {
                 "type": "string",
@@ -37,7 +38,11 @@ RECORD_MATCH_TOOL = {
     }
 }
 
-def match_bill(company_name, pipeline_run_id: str = "manual"):
+def match_bill(company_name, pipeline_run_id: str = "manual", amount: float = None):
+    # Build the context line — include amount when available so the model can
+    # disambiguate between bills from the same provider (e.g. Verizon phone vs Verizon Visa).
+    amount_hint = f"\nPayment amount from email: ${amount:.2f}" if amount is not None else ""
+
     messages = [
         {
             "role": "user",
@@ -48,12 +53,16 @@ def match_bill(company_name, pipeline_run_id: str = "manual"):
 
 IMPORTANT: Bill companies are typically financial services, utilities, insurance providers, loan servicers, or subscription services. Retail stores and one-time purchase companies are NOT bills — use LOW confidence for these.
 
+If there are multiple possible matches for the same company, use the payment amount to pick the bill whose stored amount is closest.
+
+The bill list is formatted as "Bill Name | $stored_amount". When calling record_match, use ONLY the bill name — the text before the '|'.
+
 First call get_bills to see the bill list, then call record_match with your answer.""",
                     "cache_control": {"type": "ephemeral"}
                 },
                 {
                     "type": "text",
-                    "text": f"Company to match: {company_name}"
+                    "text": f"Company to match: {company_name}{amount_hint}"
                 }
             ]
         }
@@ -70,7 +79,7 @@ First call get_bills to see the bill list, then call record_match with your answ
             pipeline_run_id=pipeline_run_id,
             agent_name="bill_matcher",
             turn=turn,
-            input_summary=f"company={company_name} turn={turn}",
+            input_summary=f"company={company_name} amount={amount} turn={turn}",
             model="claude-haiku-4-5",
             max_tokens=256,
             tools=[GET_BILLS_TOOL, RECORD_MATCH_TOOL],
@@ -96,15 +105,25 @@ First call get_bills to see the bill list, then call record_match with your answ
         for tool_call in tool_calls:
             if tool_call.name == "get_bills":
                 bills_df = db.get_bills()
-                bill_names = bills_df['name'].tolist()
+                # Include stored amounts so the model can use them to disambiguate
+                # when multiple bills share the same company (e.g. two Verizon bills,
+                # two LendingClub loans). Format: "Bill Name ($amount)"
+                bill_lines = [
+                    f"{row['name']} | ${row['amount']:.2f}"
+                    for _, row in bills_df.iterrows()
+                ]
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": tool_call.id,
-                    "content": "\n".join(bill_names)
+                    "content": "\n".join(bill_lines)
                 })
 
             elif tool_call.name == "record_match":
                 final_match = tool_call.input.get("bill_name")
+                # Safety net: strip amount suffix if model included it despite instructions
+                # e.g. "Jeep Pmt | $381.34" → "Jeep Pmt"
+                if final_match:
+                    final_match = re.sub(r'\s*\|\s*\$[\d,.]+$', '', final_match).strip()
                 final_confidence = tool_call.input.get("confidence")
                 trace.result = f"matched={final_match} confidence={final_confidence}"
                 tracer.save_trace_result(trace)

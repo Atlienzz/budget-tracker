@@ -18,7 +18,7 @@ def process_bill_email(email_text, email_date=None, pipeline_run_id: str = "manu
     else:
         print(f"   Found: {company} — ${amount:.2f}")
     print("🔍 Step 2: Matching to bill...")
-    matched_bill, confidence = match_bill(company, pipeline_run_id=pipeline_run_id)
+    matched_bill, confidence = match_bill(company, pipeline_run_id=pipeline_run_id, amount=amount)
     if matched_bill is None:
         print("   ⚠️ Could not match to any bill — skipping")
         return

@@ -129,6 +129,44 @@ def init_db():
             )
         """)
 
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS eval_runs (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id              TEXT    UNIQUE NOT NULL,
+                run_timestamp       TEXT    NOT NULL,
+                total_cases         INTEGER DEFAULT 0,
+                parser_accuracy     REAL    DEFAULT 0.0,
+                matcher_accuracy    REAL    DEFAULT 0.0,
+                end_to_end_accuracy REAL    DEFAULT 0.0,
+                avg_judge_score     REAL    DEFAULT 0.0
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS eval_case_results (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id              TEXT    NOT NULL,
+                case_id             TEXT    NOT NULL,
+                category            TEXT    NOT NULL,
+                expected_is_payment INTEGER,
+                actual_is_payment   INTEGER,
+                parser_correct      INTEGER,
+                expected_company    TEXT    DEFAULT '',
+                actual_company      TEXT    DEFAULT '',
+                company_judge_score INTEGER,
+                judge_reason        TEXT    DEFAULT '',
+                expected_amount     REAL,
+                actual_amount       REAL,
+                amount_correct      INTEGER,
+                expected_bill_name  TEXT    DEFAULT '',
+                actual_bill_name    TEXT    DEFAULT '',
+                matcher_correct     INTEGER,
+                expected_confidence TEXT    DEFAULT '',
+                actual_confidence   TEXT    DEFAULT '',
+                end_to_end_correct  INTEGER
+            )
+        """)
+
         conn.commit()
 
 
@@ -470,4 +508,88 @@ def get_agent_model_breakdown():
             ORDER BY total_cost DESC
             """,
             conn
+        )
+
+
+# ── Eval Framework ────────────────────────────────────────────────────────────
+
+def save_eval_run(run_id: str, metrics: dict):
+    """Save aggregate metrics for a completed eval run."""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO eval_runs
+                (run_id, run_timestamp, total_cases, parser_accuracy,
+                 matcher_accuracy, end_to_end_accuracy, avg_judge_score)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                run_id,
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                metrics.get("total_cases", 0),
+                metrics.get("parser_accuracy", 0.0),
+                metrics.get("matcher_accuracy", 0.0),
+                metrics.get("end_to_end_accuracy", 0.0),
+                metrics.get("avg_judge_score", 0.0),
+            ),
+        )
+        conn.commit()
+
+
+def save_eval_case_results(run_id: str, results: list):
+    """Bulk insert per-case eval results."""
+    with get_connection() as conn:
+        for r in results:
+            conn.execute(
+                """
+                INSERT INTO eval_case_results
+                    (run_id, case_id, category,
+                     expected_is_payment, actual_is_payment, parser_correct,
+                     expected_company, actual_company, company_judge_score, judge_reason,
+                     expected_amount, actual_amount, amount_correct,
+                     expected_bill_name, actual_bill_name, matcher_correct,
+                     expected_confidence, actual_confidence, end_to_end_correct)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    run_id,
+                    r["case_id"],
+                    r["category"],
+                    int(r["expected_is_payment"]) if r["expected_is_payment"] is not None else None,
+                    int(r["actual_is_payment"])   if r["actual_is_payment"]   is not None else None,
+                    int(r["parser_correct"])       if r["parser_correct"]       is not None else None,
+                    r.get("expected_company", ""),
+                    r.get("actual_company", ""),
+                    r.get("company_judge_score"),
+                    r.get("judge_reason", ""),
+                    r.get("expected_amount"),
+                    r.get("actual_amount"),
+                    int(r["amount_correct"]) if r.get("amount_correct") is not None else None,
+                    r.get("expected_bill_name", ""),
+                    r.get("actual_bill_name", ""),
+                    int(r["matcher_correct"]) if r.get("matcher_correct") is not None else None,
+                    r.get("expected_confidence", ""),
+                    r.get("actual_confidence", ""),
+                    int(r["end_to_end_correct"]) if r.get("end_to_end_correct") is not None else None,
+                ),
+            )
+        conn.commit()
+
+
+def get_eval_runs():
+    """Return all eval runs ordered by most recent first."""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            "SELECT * FROM eval_runs ORDER BY run_timestamp DESC",
+            conn,
+        )
+
+
+def get_eval_case_results(run_id: str):
+    """Return all per-case results for a given eval run."""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            "SELECT * FROM eval_case_results WHERE run_id=? ORDER BY id",
+            conn,
+            params=(run_id,),
         )
